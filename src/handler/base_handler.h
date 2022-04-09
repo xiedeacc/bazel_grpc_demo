@@ -14,24 +14,24 @@
 
 #include <functional>
 
+#include "google/protobuf/service.h"
 #include "grpc++/grpc++.h"
-#include "src/grpc_service/grpc_service_base.h"
-#include "src/grpc_service/job/base_job.h"
+#include "src/job/base_job.h"
 
 namespace grpc_demo {
 namespace handler {
 
+using CreateRpc =
+    std::function<void(grpc::Service *, grpc::ServerCompletionQueue *)>;
+
+using ProcessIncomingRequest = std::function<void(
+    grpc_demo::job::BaseJob &, const google::protobuf::Message *)>;
+
+using Done = std::function<void(grpc_demo::job::BaseJob &, bool)>;
+
 template <typename ServiceType, typename RequestType, typename ResponseType>
 struct BaseHandlers {
 public:
-  using CreateRpc =
-      std::function<void(grpc::Service *, grpc::ServerCompletionQueue *)>;
-
-  using ProcessIncomingRequest = std::function<void(
-      grpc_demo::job::BaseJob &, const google::protobuf::Message *)>;
-
-  using Done = std::function<void(BaseJob &, bool)>;
-
   CreateRpc createRpc;
 
   ProcessIncomingRequest processIncomingRequest;

@@ -140,7 +140,7 @@ new_git_repository(
     name = "rapidjson",
     remote = "https://github.com/Tencent/rapidjson.git",
     commit = "8261c1ddf43f10de00fd8c9a67811d1486b2c784",
-    build_file = "@tbox//bazel:rapidjson.BUILD",
+    build_file = "@bazel_build_file_repo//bazel:rapidjson.BUILD",
 )
 
 new_git_repository(
@@ -148,7 +148,7 @@ new_git_repository(
     remote = "https://github.com/rurban/smhasher.git",
     commit = "fb0b59ab911126082d33aaedb934cc2f787f4f5a",
     recursive_init_submodules = True,
-    build_file = "@tbox//bazel:smhasher.BUILD",
+    build_file = "@bazel_build_file_repo//bazel:smhasher.BUILD",
 )
 
 http_archive(
@@ -156,11 +156,11 @@ http_archive(
     sha256 = "ea566e528605befb830671e359118c2da718f721c27225cbbc93858c7520fee3",
     strip_prefix = "gperftools-2.9.1",
     urls = ["https://github.com/gperftools/gperftools/releases/download/gperftools-2.9.1/gperftools-2.9.1.tar.gz"],
-    build_file = "@tbox//bazel:gperftools.BUILD",
+    build_file = "@bazel_build_file_repo//bazel:gperftools.BUILD",
 )
 bind(
     name = "gperftools",
-    actual = "@tbox//bazel:gperftools",
+    actual = "@bazel_build_file_repo//bazel:gperftools",
 )
 
 http_archive(
@@ -176,12 +176,12 @@ new_git_repository(
     name = "jemalloc",
     remote = "https://github.com/jemalloc/jemalloc.git",
     tag = "5.2.1",
-    build_file = "@tbox//bazel:jemalloc.BUILD",
+    build_file = "@bazel_build_file_repo//bazel:jemalloc.BUILD",
 )
 
 new_git_repository(
     name = "cpplint",
     remote = "https://github.com/cpplint/cpplint.git",
     tag = "1.6.0",
-    build_file = "@tbox//bazel:cpplint.BUILD",
+    build_file = "@bazel_build_file_repo//bazel:cpplint.BUILD",
 )

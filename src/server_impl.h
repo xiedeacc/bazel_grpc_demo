@@ -1,41 +1,46 @@
+/*******************************************************************************
+ * Copyright (c) 2022 Copyright 2022- xiedeacc.com.
+ * All rights reserved.
+ *******************************************************************************/
 
-float ConvertToRadians(float num) { return num * 3.1415926 / 180; }
+#ifndef SERVER_IMPL_H
+#define SERVER_IMPL_H
+#pragma once
 
-float GetDistance(const routeguide::Point &start,
-                  const routeguide::Point &end) {
-  const float kCoordFactor = 10000000.0;
-  float lat_1 = start.latitude() / kCoordFactor;
-  float lat_2 = end.latitude() / kCoordFactor;
-  float lon_1 = start.longitude() / kCoordFactor;
-  float lon_2 = end.longitude() / kCoordFactor;
-  float lat_rad_1 = ConvertToRadians(lat_1);
-  float lat_rad_2 = ConvertToRadians(lat_2);
-  float delta_lat_rad = ConvertToRadians(lat_2 - lat_1);
-  float delta_lon_rad = ConvertToRadians(lon_2 - lon_1);
+#include <fstream>
+#include <mutex>
+#include <string>
+#include <vector>
 
-  float a = pow(sin(delta_lat_rad / 2), 2) +
-            cos(lat_rad_1) * cos(lat_rad_2) * pow(sin(delta_lon_rad / 2), 2);
-  float c = 2 * atan2(sqrt(a), sqrt(1 - a));
-  int R = 6371000; // metres
+#include "boost/thread/executors/basic_thread_pool.hpp"
+#include "grpc++/grpc++.h"
+#include "src/handler/base_handler.h"
+#include "src/handler/bidirectional_streaming_handler.h"
+#include "src/handler/client_streaming_handler.h"
+#include "src/handler/server_streaming_handler.h"
+#include "src/handler/unary_handler.h"
+#include "src/job/base_job.h"
+#include "src/job/bidirectional_streaming_job.h"
+#include "src/job/client_streaming_job.h"
+#include "src/job/server_streaming_job.h"
+#include "src/job/unary_job.h"
+#include "src/proto/error_code.pb.h"
+#include "src/proto/grpc_service.grpc.pb.h"
+#include "src/proto/grpc_service.pb.h"
+#include "src/tag_info.h"
+#include "src/util/helper.h"
+#include "gtest/gtest_prod.h"
 
-  return R * c;
-}
+namespace grpc_demo {
 
-std::string
-GetFeatureName(const routeguide::Point &point,
-               const std::vector<routeguide::Feature> &feature_list) {
-  for (const routeguide::Feature &f : feature_list) {
-    if (f.location().latitude() == point.latitude() &&
-        f.location().longitude() == point.longitude()) {
-      return f.name();
-    }
-  }
-  return "";
-}
-
-class ServerImpl final {
+class ServerImpl {
 public:
-  ServerImpl() { routeguide::ParseDb(gDB, &mFeatureList); }
+  ServerImpl(const std::string &db_content, std::mutex &incoming_tags_mutex,
+             std::list<TagInfo> &incoming_tags)
+      : incoming_tags_mutex_(incoming_tags_mutex),
+        incoming_tags_(incoming_tags) {
+    grpc_demo::util::ParseDb(db_content, &mFeatureList);
+  }
 
   ~ServerImpl() {
     mServer->Shutdown();
@@ -46,30 +51,19 @@ public:
   // There is no shutdown handling in this code.
   void Run() {
     std::string server_address("0.0.0.0:50051");
-
     grpc::ServerBuilder builder;
-    // Listen on the given address without any authentication mechanism.
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-    // Register "service_" as the instance through which we'll communicate with
-    // clients. In this case it corresponds to an *asynchronous* service.
     builder.RegisterService(&mRouteGuideService);
-    // Get hold of the completion queue used for the asynchronous communication
-    // with the gRPC runtime.
     mCQ = builder.AddCompletionQueue();
-    // Finally assemble the server.
     mServer = builder.BuildAndStart();
     std::cout << "Server listening on " << server_address << std::endl;
-
-    // Proceed to the server's main loop.
     HandleRpcs();
   }
 
 private:
-  // Handlers for various rpcs. An application could do custom code generation
-  // for creating these (except the actual processing logic).
   void createGetFeatureRpc() {
-    UnaryRpcHandlers<routeguide::RouteGuide::AsyncService, routeguide::Point,
-                     routeguide::Feature>
+    grpc_demo::handler::UnaryHandlers<grpc_demo::RouteGuide::AsyncService,
+                                      grpc_demo::Point, grpc_demo::Feature>
         rpcHandlers;
 
     rpcHandlers.createRpc = std::bind(&ServerImpl::createGetFeatureRpc, this);
@@ -78,30 +72,33 @@ private:
     rpcHandlers.done = &GetFeatureDone;
 
     rpcHandlers.requestRpc =
-        &routeguide::RouteGuide::AsyncService::RequestGetFeature;
+        &grpc_demo::RouteGuide::AsyncService::RequestGetFeature;
 
-    new UnaryRpc<routeguide::RouteGuide::AsyncService, routeguide::Point,
-                 routeguide::Feature>(&mRouteGuideService, mCQ.get(),
-                                      rpcHandlers);
+    new grpc_demo::job::UnaryJob<grpc_demo::RouteGuide::AsyncService,
+                                 grpc_demo::Point, grpc_demo::Feature>(
+        &mRouteGuideService, mCQ.get(), rpcHandlers);
   }
 
-  static void GetFeatureProcessor(RpcBase &rpc,
+  static void GetFeatureProcessor(grpc_demo::job::BaseJob &rpc,
                                   const google::protobuf::Message *message) {
-    auto point = static_cast<const routeguide::Point *>(message);
+    auto point = static_cast<const grpc_demo::Point *>(message);
 
-    routeguide::Feature feature;
-    feature.set_name(GetFeatureName(*point, gServerImpl->mFeatureList));
+    grpc_demo::Feature feature;
+    feature.set_name(grpc_demo::util::GetFeatureName(
+        *point, grpc_demo::ServerImpl::mFeatureList));
     feature.mutable_location()->CopyFrom(*point);
 
-    randomSleepThisThread();
     rpc.sendResponse(&feature);
   }
 
-  static void GetFeatureDone(RpcBase &rpc, bool rpcCancelled) { delete (&rpc); }
+  static void GetFeatureDone(grpc_demo::job::BaseJob &rpc, bool rpcCancelled) {
+    delete (&rpc);
+  }
 
   void createListFeaturesRpc() {
-    ServerStreamingRpcHandlers<routeguide::RouteGuide::AsyncService,
-                               routeguide::Rectangle, routeguide::Feature>
+    grpc_demo::handler::ServerStreamingHandlers<
+        grpc_demo::RouteGuide::AsyncService, grpc_demo::Rectangle,
+        grpc_demo::Feature>
         rpcHandlers;
 
     rpcHandlers.createRpc = std::bind(&ServerImpl::createListFeaturesRpc, this);
@@ -110,16 +107,17 @@ private:
     rpcHandlers.done = &ListFeaturesDone;
 
     rpcHandlers.requestRpc =
-        &routeguide::RouteGuide::AsyncService::RequestListFeatures;
+        &grpc_demo::RouteGuide::AsyncService::RequestListFeatures;
 
-    new ServerStreamingRpc<routeguide::RouteGuide::AsyncService,
-                           routeguide::Rectangle, routeguide::Feature>(
+    new grpc_demo::job::ServerStreamingJob<grpc_demo::RouteGuide::AsyncService,
+                                           grpc_demo::Rectangle,
+                                           grpc_demo::Feature>(
         &mRouteGuideService, mCQ.get(), rpcHandlers);
   }
 
-  static void ListFeaturesProcessor(RpcBase &rpc,
+  static void ListFeaturesProcessor(grpc_demo::job::BaseJob &rpc,
                                     const google::protobuf::Message *message) {
-    auto rectangle = static_cast<const routeguide::Rectangle *>(message);
+    auto rectangle = static_cast<const grpc_demo::Rectangle *>(message);
 
     auto lo = rectangle->lo();
     auto hi = rectangle->hi();
@@ -127,24 +125,25 @@ private:
     long right = (std::max)(lo.longitude(), hi.longitude());
     long top = (std::max)(lo.latitude(), hi.latitude());
     long bottom = (std::min)(lo.latitude(), hi.latitude());
-    for (auto f : gServerImpl->mFeatureList) {
+    for (auto f : grpc_demo::ServerImpl::mFeatureList) {
       if (f.location().longitude() >= left &&
           f.location().longitude() <= right &&
           f.location().latitude() >= bottom && f.location().latitude() <= top) {
         rpc.sendResponse(&f);
-        randomSleepThisThread();
       }
     }
     rpc.sendResponse(nullptr);
   }
 
-  static void ListFeaturesDone(RpcBase &rpc, bool rpcCancelled) {
+  static void ListFeaturesDone(grpc_demo::job::BaseJob &rpc,
+                               bool rpcCancelled) {
     delete (&rpc);
   }
 
   void createRecordRouteRpc() {
-    ClientStreamingRpcHandlers<routeguide::RouteGuide::AsyncService,
-                               routeguide::Point, routeguide::RouteSummary>
+    grpc_demo::handler::ClientStreamingHandlers<
+        grpc_demo::RouteGuide::AsyncService, grpc_demo::Point,
+        grpc_demo::RouteSummary>
         rpcHandlers;
 
     rpcHandlers.createRpc = std::bind(&ServerImpl::createRecordRouteRpc, this);
@@ -153,10 +152,11 @@ private:
     rpcHandlers.done = &RecordRouteDone;
 
     rpcHandlers.requestRpc =
-        &routeguide::RouteGuide::AsyncService::RequestRecordRoute;
+        &grpc_demo::RouteGuide::AsyncService::RequestRecordRoute;
 
-    new ClientStreamingRpc<routeguide::RouteGuide::AsyncService,
-                           routeguide::Point, routeguide::RouteSummary>(
+    new grpc_demo::job::ClientStreamingJob<grpc_demo::RouteGuide::AsyncService,
+                                           grpc_demo::Point,
+                                           grpc_demo::RouteSummary>(
         &mRouteGuideService, mCQ.get(), rpcHandlers);
   }
 
@@ -164,37 +164,37 @@ private:
     int pointCount;
     int featureCount;
     float distance;
-    routeguide::Point previous;
+    grpc_demo::Point previous;
     std::chrono::system_clock::time_point startTime;
     RecordRouteState() : pointCount(0), featureCount(0), distance(0.0f) {}
   };
 
-  std::unordered_map<RpcBase *, RecordRouteState> mRecordRouteMap;
-  static void RecordRouteProcessor(RpcBase &rpc,
+  static void RecordRouteProcessor(grpc_demo::job::BaseJob &rpc,
                                    const google::protobuf::Message *message) {
-    auto point = static_cast<const routeguide::Point *>(message);
+    auto point = static_cast<const grpc_demo::Point *>(message);
 
-    RecordRouteState &state = gServerImpl->mRecordRouteMap[&rpc];
+    RecordRouteState &state = grpc_demo::ServerImpl::mRecordRouteMap[&rpc];
 
     if (point) {
       if (state.pointCount == 0)
         state.startTime = std::chrono::system_clock::now();
 
       state.pointCount++;
-      if (!GetFeatureName(*point, gServerImpl->mFeatureList).empty()) {
+      if (!grpc_demo::util::GetFeatureName(*point,
+                                           grpc_demo::ServerImpl::mFeatureList)
+               .empty()) {
         state.featureCount++;
       }
       if (state.pointCount != 1) {
-        state.distance += GetDistance(state.previous, *point);
+        state.distance += grpc_demo::util::GetDistance(state.previous, *point);
       }
       state.previous = *point;
 
-      randomSleepThisThread();
     } else {
       std::chrono::system_clock::time_point endTime =
           std::chrono::system_clock::now();
 
-      routeguide::RouteSummary summary;
+      grpc_demo::RouteSummary summary;
       summary.set_point_count(state.pointCount);
       summary.set_feature_count(state.featureCount);
       summary.set_distance(static_cast<long>(state.distance));
@@ -203,19 +203,18 @@ private:
       summary.set_elapsed_time(secs.count());
       rpc.sendResponse(&summary);
 
-      gServerImpl->mRecordRouteMap.erase(&rpc);
-      randomSleepThisThread();
+      grpc_demo::ServerImpl::mRecordRouteMap.erase(&rpc);
     }
   }
 
-  static void RecordRouteDone(RpcBase &rpc, bool rpcCancelled) {
+  static void RecordRouteDone(grpc_demo::job::BaseJob &rpc, bool rpcCancelled) {
     delete (&rpc);
   }
 
   void createRouteChatRpc() {
-    BidirectionalStreamingRpcHandlers<routeguide::RouteGuide::AsyncService,
-                                      routeguide::RouteNote,
-                                      routeguide::RouteNote>
+    grpc_demo::handler::BidirectionalStreamingHandlers<
+        grpc_demo::RouteGuide::AsyncService, grpc_demo::RouteNote,
+        grpc_demo::RouteNote>
         rpcHandlers;
 
     rpcHandlers.createRpc = std::bind(&ServerImpl::createRouteChatRpc, this);
@@ -224,28 +223,28 @@ private:
     rpcHandlers.done = &RouteChatDone;
 
     rpcHandlers.requestRpc =
-        &routeguide::RouteGuide::AsyncService::RequestRouteChat;
+        &grpc_demo::RouteGuide::AsyncService::RequestRouteChat;
 
-    new BidirectionalStreamingRpc<routeguide::RouteGuide::AsyncService,
-                                  routeguide::RouteNote, routeguide::RouteNote>(
-        &mRouteGuideService, mCQ.get(), rpcHandlers);
+    new grpc_demo::job::BidirectionalStreamingJob<
+        grpc_demo::RouteGuide::AsyncService, grpc_demo::RouteNote,
+        grpc_demo::RouteNote>(&mRouteGuideService, mCQ.get(), rpcHandlers);
   }
 
-  static void RouteChatProcessor(RpcBase &rpc,
+  static void RouteChatProcessor(grpc_demo::job::BaseJob &rpc,
                                  const google::protobuf::Message *message) {
-    auto note = static_cast<const routeguide::RouteNote *>(message);
+    auto note = static_cast<const grpc_demo::RouteNote *>(message);
     // Simply echo the note back.
     if (note) {
-      routeguide::RouteNote responseNote(*note);
+      grpc_demo::RouteNote responseNote(*note);
       rpc.sendResponse(&responseNote);
-      randomSleepThisThread();
     } else {
       rpc.sendResponse(nullptr);
-      randomSleepThisThread();
     }
   }
 
-  static void RouteChatDone(RpcBase &rpc, bool rpcCancelled) { delete (&rpc); }
+  static void RouteChatDone(grpc_demo::job::BaseJob &rpc, bool rpcCancelled) {
+    delete (&rpc);
+  }
 
   void HandleRpcs() {
     createGetFeatureRpc();
@@ -263,14 +262,23 @@ private:
       GPR_ASSERT(mCQ->Next((void **)&tagInfo.tagProcessor,
                            &tagInfo.ok)); // GRPC_TODO - Handle returned value
 
-      gIncomingTagsMutex.lock();
-      gIncomingTags.push_back(tagInfo);
-      gIncomingTagsMutex.unlock();
+      incoming_tags_mutex_.lock();
+      incoming_tags_.push_back(tagInfo);
+      incoming_tags_mutex_.unlock();
     }
   }
 
+  std::list<TagInfo> &incoming_tags_;
+  std::mutex &incoming_tags_mutex_;
   std::unique_ptr<grpc::ServerCompletionQueue> mCQ;
-  routeguide::RouteGuide::AsyncService mRouteGuideService;
-  std::vector<routeguide::Feature> mFeatureList;
+  grpc_demo::RouteGuide::AsyncService mRouteGuideService;
+  static std::unordered_map<grpc_demo::job::BaseJob *, RecordRouteState>
+      mRecordRouteMap;
+
+  static std::vector<grpc_demo::Feature> mFeatureList;
   std::unique_ptr<grpc::Server> mServer;
 };
+
+} // namespace grpc_demo
+
+#endif // SERVER_IMPL_H

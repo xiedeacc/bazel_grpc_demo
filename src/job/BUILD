@@ -1,5 +1,3 @@
-load("//tools:cpplint.bzl", "cpplint")
-load("//tools:build.bzl", "cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -11,10 +9,11 @@ cc_library(
         "server_streaming_job.h",
         "unary_job.h",
     ],
+    srcs = ["static_member_init.cc"],
     deps = [
         ":grpc_base_job",
-        "//src/grpc_service/proto:grpc_service",
-        "//src/grpc_service/handler:grpc_handler",
+        "//src/proto:grpc_service",
+        "//src/handler:grpc_handler",
         "@com_github_gflags_gflags//:gflags",
         "@com_google_googletest//:gtest",
         "@com_github_grpc_grpc//:grpc++",
@@ -28,7 +27,7 @@ cc_library(
         "base_job.h",
     ],
     deps = [
-        "//src/grpc_service/proto:grpc_service",
+        "//src/proto:grpc_service",
         "@com_github_gflags_gflags//:gflags",
         "@com_google_googletest//:gtest",
         "@glog",
@@ -37,4 +36,3 @@ cc_library(
     ],
 )
 
-cpplint()

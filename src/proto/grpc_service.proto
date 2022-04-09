@@ -1,82 +1,36 @@
 syntax = "proto3";
-package tbox.grpc_service;
+package grpc_demo;
 
-message RequestConfig {
-  string log_id = 1;
-  bool is_debug = 2;
-  string app_name = 3;
-  string app_version = 4;
+message Point {
+  int32 latitude = 1;
+  int32 longitude = 2;
 }
 
-message GetServerStatusRequest {
-  RequestConfig config = 1;
+message Rectangle {
+  Point lo = 1;
+  Point hi = 2;
 }
 
-message GetServerStatusResponse {
-  int32 ret_code = 1;
-  string ret_msg = 2;
-  string server_status = 3;
+message Feature {
+  string name = 1;
+  Point location = 2;
 }
 
-message GetIpRequest {
-  RequestConfig config = 1;
+message RouteNote {
+  Point location = 1;
+  string message = 2;
 }
 
-message GetIpResponse {
-  int32 ret_code = 1;
-  string ret_msg = 2;
-  string ip_addr = 3;
+message RouteSummary {
+  int32 point_count = 1;
+  int32 feature_count = 2;
+  int32 distance = 3;
+  int32 elapsed_time = 4;
 }
 
-message PostIpRequest {
-  RequestConfig config = 1;
-  string ip_addr = 2;
-}
-
-message PostIpResponse {
-  int32 ret_code = 1;
-  string ret_msg = 2;
-}
-
-message ClientStreamingRequest {
-  RequestConfig config = 1;
-  string ip_addr = 2;
-}
-
-message ClientStreamingResponse {
-  int32 ret_code = 1;
-  string ret_msg = 2;
-}
-
-message ServerStreamingRequest {
-  RequestConfig config = 1;
-  string ip_addr = 2;
-}
-
-message ServerStreamingResponse {
-  int32 ret_code = 1;
-  string ret_msg = 2;
-}
-
-message BidirectionalStreamingRequest {
-  RequestConfig config = 1;
-  string ip_addr = 2;
-}
-
-message BidirectionalStreamingResponse {
-  int32 ret_code = 1;
-  string ret_msg = 2;
-}
-
-service GrpcService {
-  rpc GetServerStatus(GetServerStatusRequest)
-      returns (GetServerStatusResponse) {}
-  rpc GetIp(GetIpRequest) returns (GetIpResponse) {}
-  rpc PostIp(PostIpRequest) returns (PostIpResponse) {}
-  rpc HandleClientStreaming(stream ClientStreamingRequest)
-      returns (ClientStreamingResponse) {}
-  rpc HandleServerStreaming(ServerStreamingRequest)
-      returns (stream ServerStreamingResponse) {}
-  rpc HandleBidirectionalStreaming(stream BidirectionalStreamingRequest)
-      returns (stream BidirectionalStreamingResponse) {}
+service RouteGuide {
+  rpc GetFeature(Point) returns (Feature) {}
+  rpc ListFeatures(Rectangle) returns (stream Feature) {}
+  rpc RecordRoute(stream Point) returns (RouteSummary) {}
+  rpc RouteChat(stream RouteNote) returns (stream RouteNote) {}
 }

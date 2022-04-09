@@ -9,31 +9,31 @@
 
 #include <grpcpp/completion_queue.h>
 
-#include "src/grpc_service/handler/base_handler.h"
-#include "src/grpc_service/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_service/handler/client_streaming_handler.h"
-#include "src/grpc_service/handler/server_streaming_handler.h"
-#include "src/grpc_service/handler/unary_handler.h"
-#include "src/grpc_service/job/base_job.h"
+#include "src/handler/base_handler.h"
+#include "src/handler/bidirectional_streaming_handler.h"
+#include "src/handler/client_streaming_handler.h"
+#include "src/handler/server_streaming_handler.h"
+#include "src/handler/unary_handler.h"
+#include "src/job/base_job.h"
 
 namespace grpc_demo {
 namespace job {
 
 template <typename ServiceType, typename RequestType, typename ResponseType>
-class UnaryRpc : public BaseJob {
+class UnaryJob : public BaseJob {
   using ThisJobTypeHandlers =
-      UnaryHandlers<ServiceType, RequestType, ResponseType>;
+      grpc_demo::handler::UnaryHandlers<ServiceType, RequestType, ResponseType>;
 
 public:
-  UnaryRpc(ServiceType *service, grpc::ServerCompletionQueue *cq,
+  UnaryJob(ServiceType *service, grpc::ServerCompletionQueue *cq,
            ThisJobTypeHandlers jobHandlers)
       : mService(service), mCQ(cq), mResponder(&mServerContext),
         mHandlers(jobHandlers) {
-    ++gUnaryRpcCounter;
+    ++gUnaryJobCounter;
 
     // create TagProcessors that we'll use to interact with gRPC CompletionQueue
-    mOnRead = std::bind(&UnaryRpc::onRead, this, std::placeholders::_1);
-    mOnFinish = std::bind(&UnaryRpc::onFinish, this, std::placeholders::_1);
+    mOnRead = std::bind(&UnaryJob::onRead, this, std::placeholders::_1);
+    mOnFinish = std::bind(&UnaryJob::onFinish, this, std::placeholders::_1);
     mOnDone = std::bind(&BaseJob::onDone, this, std::placeholders::_1);
 
     // set up the completion queue to inform us when gRPC is done with this rpc.
@@ -78,14 +78,7 @@ private:
     if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
       if (ok) {
         // We have a request that can be responded to now. So process it.
-        auto note = static_cast<const routeguide::RouteNote *>(mRequest);
-        if (!note) {
-          rpc.sendResponse(nullptr);
-          randomSleepThisThread();
-          return;
-        }
         mHandlers.processIncomingRequest(*this, &mRequest);
-        rpc.sendResponse(&mResponse);
       } else {
         GPR_ASSERT(ok);
       }
@@ -97,9 +90,12 @@ private:
   void done() override {
     mHandlers.done(*this, mServerContext.IsCancelled());
 
-    --gUnaryRpcCounter;
-    gpr_log(GPR_DEBUG, "Pending Unary Rpcs Count = %d", gUnaryRpcCounter);
+    --gUnaryJobCounter;
+    LOG(INFO) << "Pending Unary Rpcs Count = " << gUnaryJobCounter;
   }
+
+public:
+  static std::atomic<int32_t> gUnaryJobCounter;
 
 private:
   ServiceType *mService;
@@ -111,9 +107,9 @@ private:
 
   ThisJobTypeHandlers mHandlers;
 
-  TagProcessor mOnRead;
-  TagProcessor mOnFinish;
-  TagProcessor mOnDone;
+  std::function<void(bool)> mOnRead;
+  std::function<void(bool)> mOnFinish;
+  std::function<void(bool)> mOnDone;
 };
 
 } // namespace job

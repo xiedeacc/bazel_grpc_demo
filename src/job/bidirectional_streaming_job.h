@@ -7,14 +7,16 @@
 #define JOB_BI_STREAMING_JOB_H
 #pragma once
 
+#include <cstdlib>
+
 #include <grpcpp/completion_queue.h>
 
-#include "src/grpc_service/handler/base_handler.h"
-#include "src/grpc_service/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_service/handler/client_streaming_handler.h"
-#include "src/grpc_service/handler/server_streaming_handler.h"
-#include "src/grpc_service/handler/unary_handler.h"
-#include "src/grpc_service/job/base_job.h"
+#include "src/handler/base_handler.h"
+#include "src/handler/bidirectional_streaming_handler.h"
+#include "src/handler/client_streaming_handler.h"
+#include "src/handler/server_streaming_handler.h"
+#include "src/handler/unary_handler.h"
+#include "src/job/base_job.h"
 
 namespace grpc_demo {
 namespace job {
@@ -22,7 +24,8 @@ namespace job {
 template <typename ServiceType, typename RequestType, typename ResponseType>
 class BidirectionalStreamingJob : public BaseJob {
   using ThisJobTypeHandlers =
-      BidirectionalStreamingHandlers<ServiceType, RequestType, ResponseType>;
+      grpc_demo::handler::BidirectionalStreamingHandlers<
+          ServiceType, RequestType, ResponseType>;
 
 public:
   BidirectionalStreamingJob(ServiceType *service,
@@ -160,9 +163,12 @@ private:
     mHandlers.done(*this, mServerContext.IsCancelled());
 
     --gBidirectionalStreamingJobCounter;
-    gpr_log(GPR_DEBUG, "Pending Bidirectional Streaming Rpcs Count = %d",
-            gBidirectionalStreamingJobCounter);
+    LOG(INFO) << "Pending Bidirectional Streaming Rpcs Count = "
+              << gBidirectionalStreamingJobCounter;
   }
+
+public:
+  static std::atomic<int32_t> gBidirectionalStreamingJobCounter;
 
 private:
   ServiceType *mService;
@@ -173,11 +179,11 @@ private:
 
   ThisJobTypeHandlers mHandlers;
 
-  TagProcessor mOnInit;
-  TagProcessor mOnRead;
-  TagProcessor mOnWrite;
-  TagProcessor mOnFinish;
-  TagProcessor mOnDone;
+  std::function<void(bool)> mOnInit;
+  std::function<void(bool)> mOnRead;
+  std::function<void(bool)> mOnWrite;
+  std::function<void(bool)> mOnFinish;
+  std::function<void(bool)> mOnDone;
 
   std::list<ResponseType> mResponseQueue;
   bool mServerStreamingDone;

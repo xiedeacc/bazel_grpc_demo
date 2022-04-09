@@ -9,35 +9,36 @@
 
 #include <grpcpp/completion_queue.h>
 
-#include "src/grpc_service/handler/base_handler.h"
-#include "src/grpc_service/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_service/handler/client_streaming_handler.h"
-#include "src/grpc_service/handler/server_streaming_handler.h"
-#include "src/grpc_service/handler/unary_handler.h"
-#include "src/grpc_service/job/base_job.h"
+#include "src/handler/base_handler.h"
+#include "src/handler/bidirectional_streaming_handler.h"
+#include "src/handler/client_streaming_handler.h"
+#include "src/handler/server_streaming_handler.h"
+#include "src/handler/unary_handler.h"
+#include "src/job/base_job.h"
 
 namespace grpc_demo {
 namespace job {
 
 template <typename ServiceType, typename RequestType, typename ResponseType>
-class ServerStreamingRpc : public BaseJob {
+class ServerStreamingJob : public BaseJob {
   using ThisJobTypeHandlers =
-      ServerStreamingHandlers<ServiceType, RequestType, ResponseType>;
+      grpc_demo::handler::ServerStreamingHandlers<ServiceType, RequestType,
+                                                  ResponseType>;
 
 public:
-  ServerStreamingRpc(ServiceType *service, grpc::ServerCompletionQueue *cq,
+  ServerStreamingJob(ServiceType *service, grpc::ServerCompletionQueue *cq,
                      ThisJobTypeHandlers jobHandlers)
       : mService(service), mCQ(cq), mResponder(&mServerContext),
         mHandlers(jobHandlers), mServerStreamingDone(false) {
-    ++gServerStreamingRpcCounter;
+    ++gServerStreamingJobCounter;
 
     // create TagProcessors that we'll use to interact with gRPC CompletionQueue
     mOnRead =
-        std::bind(&ServerStreamingRpc::onRead, this, std::placeholders::_1);
+        std::bind(&ServerStreamingJob::onRead, this, std::placeholders::_1);
     mOnWrite =
-        std::bind(&ServerStreamingRpc::onWrite, this, std::placeholders::_1);
+        std::bind(&ServerStreamingJob::onWrite, this, std::placeholders::_1);
     mOnFinish =
-        std::bind(&ServerStreamingRpc::onFinish, this, std::placeholders::_1);
+        std::bind(&ServerStreamingJob::onFinish, this, std::placeholders::_1);
     mOnDone = std::bind(&BaseJob::onDone, this, std::placeholders::_1);
 
     // set up the completion queue to inform us when gRPC is done with this rpc.
@@ -129,10 +130,13 @@ private:
   void done() override {
     mHandlers.done(*this, mServerContext.IsCancelled());
 
-    --gServerStreamingRpcCounter;
-    gpr_log(GPR_DEBUG, "Pending Server Streaming Rpcs Count = %d",
-            gServerStreamingRpcCounter);
+    --gServerStreamingJobCounter;
+    LOG(INFO) << "Pending Server Streaming Rpcs Count = "
+              << gServerStreamingJobCounter;
   }
+
+public:
+  static std::atomic<int32_t> gServerStreamingJobCounter;
 
 private:
   ServiceType *mService;
@@ -143,10 +147,10 @@ private:
 
   ThisJobTypeHandlers mHandlers;
 
-  TagProcessor mOnRead;
-  TagProcessor mOnWrite;
-  TagProcessor mOnFinish;
-  TagProcessor mOnDone;
+  std::function<void(bool)> mOnRead;
+  std::function<void(bool)> mOnWrite;
+  std::function<void(bool)> mOnFinish;
+  std::function<void(bool)> mOnDone;
 
   std::list<ResponseType> mResponseQueue;
   bool mServerStreamingDone;

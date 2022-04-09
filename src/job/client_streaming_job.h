@@ -9,12 +9,12 @@
 
 #include <grpcpp/completion_queue.h>
 
-#include "src/grpc_service/handler/base_handler.h"
-#include "src/grpc_service/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_service/handler/client_streaming_handler.h"
-#include "src/grpc_service/handler/server_streaming_handler.h"
-#include "src/grpc_service/handler/unary_handler.h"
-#include "src/grpc_service/job/base_job.h"
+#include "src/handler/base_handler.h"
+#include "src/handler/bidirectional_streaming_handler.h"
+#include "src/handler/client_streaming_handler.h"
+#include "src/handler/server_streaming_handler.h"
+#include "src/handler/unary_handler.h"
+#include "src/job/base_job.h"
 
 namespace grpc_demo {
 namespace job {
@@ -22,7 +22,8 @@ namespace job {
 template <typename ServiceType, typename RequestType, typename ResponseType>
 class ClientStreamingJob : public BaseJob {
   using ThisJobTypeHandlers =
-      ClientStreamingHandlers<ServiceType, RequestType, ResponseType>;
+      grpc_demo::handler::ClientStreamingHandlers<ServiceType, RequestType,
+                                                  ResponseType>;
 
 public:
   ClientStreamingJob(ServiceType *service, grpc::ServerCompletionQueue *cq,
@@ -117,9 +118,12 @@ private:
     mHandlers.done(*this, mServerContext.IsCancelled());
 
     --gClientStreamingJobCounter;
-    gpr_log(GPR_DEBUG, "Pending Client Streaming Rpcs Count = %d",
-            gClientStreamingJobCounter);
+    LOG(INFO) << "Pending Client Streaming Rpcs Count = "
+              << gClientStreamingJobCounter;
   }
+
+public:
+  static std::atomic<int32_t> gClientStreamingJobCounter;
 
 private:
   ServiceType *mService;
@@ -131,10 +135,10 @@ private:
 
   ThisJobTypeHandlers mHandlers;
 
-  TagProcessor mOnInit;
-  TagProcessor mOnRead;
-  TagProcessor mOnFinish;
-  TagProcessor mOnDone;
+  std::function<void(bool)> mOnInit;
+  std::function<void(bool)> mOnRead;
+  std::function<void(bool)> mOnFinish;
+  std::function<void(bool)> mOnDone;
 
   bool mClientStreamingDone;
 };

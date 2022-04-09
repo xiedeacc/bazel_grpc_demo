@@ -9,7 +9,7 @@
 
 #include <grpcpp/completion_queue.h>
 
-#include "src/grpc_service//handler/base_handler.h"
+#include "src/handler/base_handler.h"
 
 namespace grpc_demo {
 namespace handler {
