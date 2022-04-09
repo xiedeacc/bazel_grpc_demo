@@ -1,0 +1,82 @@
+syntax = "proto3";
+package tbox.grpc_service;
+
+message RequestConfig {
+  string log_id = 1;
+  bool is_debug = 2;
+  string app_name = 3;
+  string app_version = 4;
+}
+
+message GetServerStatusRequest {
+  RequestConfig config = 1;
+}
+
+message GetServerStatusResponse {
+  int32 ret_code = 1;
+  string ret_msg = 2;
+  string server_status = 3;
+}
+
+message GetIpRequest {
+  RequestConfig config = 1;
+}
+
+message GetIpResponse {
+  int32 ret_code = 1;
+  string ret_msg = 2;
+  string ip_addr = 3;
+}
+
+message PostIpRequest {
+  RequestConfig config = 1;
+  string ip_addr = 2;
+}
+
+message PostIpResponse {
+  int32 ret_code = 1;
+  string ret_msg = 2;
+}
+
+message ClientStreamingRequest {
+  RequestConfig config = 1;
+  string ip_addr = 2;
+}
+
+message ClientStreamingResponse {
+  int32 ret_code = 1;
+  string ret_msg = 2;
+}
+
+message ServerStreamingRequest {
+  RequestConfig config = 1;
+  string ip_addr = 2;
+}
+
+message ServerStreamingResponse {
+  int32 ret_code = 1;
+  string ret_msg = 2;
+}
+
+message BidirectionalStreamingRequest {
+  RequestConfig config = 1;
+  string ip_addr = 2;
+}
+
+message BidirectionalStreamingResponse {
+  int32 ret_code = 1;
+  string ret_msg = 2;
+}
+
+service GrpcService {
+  rpc GetServerStatus(GetServerStatusRequest)
+      returns (GetServerStatusResponse) {}
+  rpc GetIp(GetIpRequest) returns (GetIpResponse) {}
+  rpc PostIp(PostIpRequest) returns (PostIpResponse) {}
+  rpc HandleClientStreaming(stream ClientStreamingRequest)
+      returns (ClientStreamingResponse) {}
+  rpc HandleServerStreaming(ServerStreamingRequest)
+      returns (stream ServerStreamingResponse) {}
+  rpc HandleBidirectionalStreaming(stream BidirectionalStreamingRequest)
+      returns (stream BidirectionalStreamingResponse) {}
+}
