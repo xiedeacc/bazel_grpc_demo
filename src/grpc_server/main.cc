@@ -39,7 +39,7 @@ static void randomSleepThisThread() { randomSleepThisThread(10, 100); }
 static void processRpcs(std::mutex *incoming_tags_mutex,
                         TagList *incoming_tags) {
   while (true) {
-    LOG(INFO) << incoming_tags->size() << std::endl;
+    // LOG(INFO) << incoming_tags->size() << std::endl;
     incoming_tags_mutex->lock();
     TagList tags = std::move(*incoming_tags);
     incoming_tags_mutex->unlock();
