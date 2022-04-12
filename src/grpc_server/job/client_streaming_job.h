@@ -87,7 +87,7 @@ private:
   }
 
   void onInit(bool ok) {
-    mHandlers.createRpc(mService, mCQ);
+    mHandlers.createRpc();
 
     if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
       if (ok) {

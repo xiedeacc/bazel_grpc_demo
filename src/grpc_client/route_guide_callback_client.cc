@@ -96,7 +96,7 @@ public:
 
     class Reader : public grpc::ClientReadReactor<Feature> {
     public:
-      Reader(grpc_demo::grpc_server::Stub *stub, float coord_factor,
+      Reader(grpc_demo::grpc_server::RouteGuide::Stub *stub, float coord_factor,
              const grpc_demo::grpc_server::Rectangle &rect)
           : coord_factor_(coord_factor) {
         stub->async()->ListFeatures(&context_, &rect, this);
@@ -145,8 +145,8 @@ public:
   void RecordRoute() {
     class Recorder : public grpc::ClientWriteReactor<Point> {
     public:
-      Recorder(grpc_demo::grpc_server::Stub *stub, float coord_factor,
-               const std::vector<Feature> *feature_list)
+      Recorder(grpc_demo::grpc_server::RouteGuide::Stub *stub,
+               float coord_factor, const std::vector<Feature> *feature_list)
           : coord_factor_(coord_factor), feature_list_(feature_list),
             generator_(
                 std::chrono::system_clock::now().time_since_epoch().count()),
@@ -227,7 +227,7 @@ public:
   void RouteChat() {
     class Chatter : public grpc::ClientBidiReactor<RouteNote, RouteNote> {
     public:
-      explicit Chatter(grpc_demo::grpc_server::Stub *stub)
+      explicit Chatter(grpc_demo::grpc_server::RouteGuide::Stub *stub)
           : notes_{MakeRouteNote("First message", 0, 0),
                    MakeRouteNote("Second message", 0, 1),
                    MakeRouteNote("Third message", 1, 0),
@@ -330,7 +330,7 @@ private:
   }
 
   const float kCoordFactor_ = 10000000.0;
-  std::unique_ptr<grpc_demo::grpc_server::Stub> stub_;
+  std::unique_ptr<grpc_demo::grpc_server::RouteGuide::Stub> stub_;
   std::vector<Feature> feature_list_;
 };
 

@@ -53,8 +53,10 @@ public:
     // finally, issue the async request needed by gRPC to start handling this
     // rpc.
     asyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
+    LOG(INFO) << "created!";
     mHandlers.requestRpc(mService, &mServerContext, &mResponder, mCQ, mCQ,
                          &mOnInit);
+    LOG(INFO) << "requestRpc";
   }
 
 private:
@@ -94,11 +96,13 @@ private:
 
   void doSendResponse() {
     asyncOpStarted(BaseJob::ASYNC_OP_TYPE_WRITE);
+    LOG(INFO) << "write";
     mResponder.Write(mResponseQueue.front(), &mOnWrite);
   }
 
   void doFinish() {
     asyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+    LOG(INFO) << "finish";
     mResponder.Finish(grpc::Status::OK, &mOnFinish);
   }
 
@@ -110,11 +114,11 @@ private:
   }
 
   void onInit(bool ok) {
-    mHandlers.createRpc(mService, mCQ);
-
+    mHandlers.createRpc();
     if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
       if (ok) {
         asyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
+        LOG(INFO) << "read";
         mResponder.Read(&mRequest, &mOnRead);
       }
     }
@@ -124,13 +128,19 @@ private:
     if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
       if (ok) {
         // inform application that a new request has come in
+
+        // std::this_thread::sleep_for(std::chrono::milliseconds{dist(generator)});
+        LOG(INFO) << "processIncomingRequest";
         mHandlers.processIncomingRequest(*this, &mRequest);
 
         // queue up another read operation for this rpc
         asyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
+        LOG(INFO) << "read";
         mResponder.Read(&mRequest, &mOnRead);
       } else {
         mClientStreamingDone = true;
+        LOG(INFO) << "processIncomingRequest"
+                  << (mClientStreamingDone ? " true" : " false");
         mHandlers.processIncomingRequest(*this, nullptr);
       }
     }

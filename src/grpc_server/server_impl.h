@@ -254,6 +254,7 @@ private:
   static void RouteChatDone(grpc_demo::grpc_server::job::BaseJob &rpc,
                             bool rpcCancelled) {
     delete (&rpc);
+    LOG(INFO) << "cancelled: " << (rpcCancelled ? "true" : "false");
   }
 
   void HandleRpcs() {
@@ -264,11 +265,6 @@ private:
 
     TagInfo tagInfo;
     while (true) {
-      // Block waiting to read the next event from the completion queue. The
-      // event is uniquely identified by its tag, which in this case is the
-      // memory address of a CallData instance.
-      // The return value of Next should always be checked. This return value
-      // tells us whether there is any kind of event or cq_ is shutting down.
       GPR_ASSERT(mCQ->Next((void **)&tagInfo.tagProcessor,
                            &tagInfo.ok)); // GRPC_TODO - Handle returned value
 

@@ -75,7 +75,7 @@ private:
   void onRead(bool ok) {
     // A request has come on the service which can now be handled. Create a new
     // rpc of this type to allow the server to handle next request.
-    mHandlers.createRpc(mService, mCQ);
+    mHandlers.createRpc();
 
     if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
       if (ok) {

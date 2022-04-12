@@ -89,6 +89,7 @@ protected:
 public:
   void onDone(bool /*ok*/) {
     mOnDoneCalled = true;
+    LOG(INFO) << "onDone called, mAsyncOpCounter = " << mAsyncOpCounter;
     if (mAsyncOpCounter == 0)
       done();
   }

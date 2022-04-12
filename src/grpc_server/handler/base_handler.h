@@ -22,8 +22,7 @@ namespace grpc_demo {
 namespace grpc_server {
 namespace handler {
 
-using CreateRpc =
-    std::function<void(grpc::Service *, grpc::ServerCompletionQueue *)>;
+using CreateRpc = std::function<void()>;
 
 using ProcessIncomingRequest = std::function<void(
     grpc_demo::grpc_server::job::BaseJob &, const google::protobuf::Message *)>;
