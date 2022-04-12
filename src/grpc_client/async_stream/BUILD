@@ -1,67 +1,60 @@
+
 package(default_visibility = ["//visibility:public"])
 
-cc_binary(
+cc_library(
+    name = "client_base",
+    hdrs = [
+      "client_base.h",
+    ],
+    deps = [
+        "//src/grpc_client/async_stream/grpc_framework:client_impl",
+        "//src/grpc_server/proto:grpc_service",
+        "@com_github_gflags_gflags//:gflags",
+        "@glog",
+        "@com_github_gperftools_gperftools//:gperftools",
+        "@jemalloc",
+        "@boost//:algorithm",
+        "@boost//:thread",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_library(
+    name = "route_guide_call",
+    hdrs = [
+      "route_guide_call.h",
+    ],
+    srcs = ["route_guide_call.cc"],
+    deps = [
+        ":client_base",
+        "//src/grpc_client/async_stream/grpc_framework:client_rpc_tag",
+        "//src/grpc_server/proto:grpc_service",
+        "@com_github_gflags_gflags//:gflags",
+        "@glog",
+        "@com_github_gperftools_gperftools//:gperftools",
+        "@jemalloc",
+        "@boost//:algorithm",
+        "@boost//:thread",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_library(
     name = "route_guide_client",
-    srcs = ["route_guide_client.cc"],
-    linkstatic = 1,
-    deps = [
-        "//src/grpc_server/proto:grpc_service",
-        "//src/grpc_server/util:helper",
-        "@com_github_gflags_gflags//:gflags",
-        "@glog",
-        "@com_github_gperftools_gperftools//:gperftools",
-        "@jemalloc",
-        "@boost//:algorithm",
-        "@boost//:thread",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
+    hdrs = [
+      "route_guide_client.h",
     ],
-)
-
-cc_binary(
-    name = "route_guide_callback_client",
-    srcs = ["route_guide_callback_client.cc"],
-    linkstatic = 1,
-    deps = [
-        "//src/grpc_server/proto:grpc_service",
-        "//src/grpc_server/util:helper",
-        "@com_github_gflags_gflags//:gflags",
-        "@glog",
-        "@com_github_gperftools_gperftools//:gperftools",
-        "@jemalloc",
-        "@boost//:algorithm",
-        "@boost//:thread",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
+    srcs = [
+      "route_guide_client.cc",
     ],
-)
 
-cc_binary(
-    name = "route_guide_async_client",
-    srcs = ["route_guide_async_client.cc"],
-    linkstatic = 1,
     deps = [
+        ":client_base",
+        ":route_guide_call",
+        "//src/grpc_client/async_stream/grpc_framework:client_impl",
         "//src/grpc_server/proto:grpc_service",
-        "//src/grpc_server/util:helper",
-        "@com_github_gflags_gflags//:gflags",
-        "@glog",
-        "@com_github_gperftools_gperftools//:gperftools",
-        "@jemalloc",
-        "@boost//:algorithm",
-        "@boost//:thread",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-cc_binary(
-    name = "route_guide_async_stream_client",
-    srcs = ["route_guide_async_stream_client.cc"],
-    linkstatic = 1,
-    deps = [
-        "//src/grpc_client/async_stream:route_guide_client",
-        "//src/grpc_server/proto:grpc_service",
-        "//src/grpc_server/util:helper",
         "@com_github_gflags_gflags//:gflags",
         "@glog",
         "@com_github_gperftools_gperftools//:gperftools",

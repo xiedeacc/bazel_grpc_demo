@@ -1,12 +1,12 @@
 package(default_visibility = ["//visibility:public"])
 
-cc_binary(
-    name = "route_guide_client",
-    srcs = ["route_guide_client.cc"],
-    linkstatic = 1,
+cc_library(
+    name = "tag_base",
+    hdrs = [
+      "tag_base.h",
+    ],
     deps = [
         "//src/grpc_server/proto:grpc_service",
-        "//src/grpc_server/util:helper",
         "@com_github_gflags_gflags//:gflags",
         "@glog",
         "@com_github_gperftools_gperftools//:gperftools",
@@ -18,13 +18,14 @@ cc_binary(
     ],
 )
 
-cc_binary(
-    name = "route_guide_callback_client",
-    srcs = ["route_guide_callback_client.cc"],
-    linkstatic = 1,
+cc_library(
+    name = "reader_writer",
+    hdrs = [
+      "rpc_reader.h",
+      "rpc_writer.h",
+    ],
     deps = [
         "//src/grpc_server/proto:grpc_service",
-        "//src/grpc_server/util:helper",
         "@com_github_gflags_gflags//:gflags",
         "@glog",
         "@com_github_gperftools_gperftools//:gperftools",
@@ -36,13 +37,13 @@ cc_binary(
     ],
 )
 
-cc_binary(
-    name = "route_guide_async_client",
-    srcs = ["route_guide_async_client.cc"],
-    linkstatic = 1,
+cc_library(
+    name = "msg_queue",
+    hdrs = [
+      "msg_queue.h",
+    ],
     deps = [
         "//src/grpc_server/proto:grpc_service",
-        "//src/grpc_server/util:helper",
         "@com_github_gflags_gflags//:gflags",
         "@glog",
         "@com_github_gperftools_gperftools//:gperftools",
@@ -54,14 +55,36 @@ cc_binary(
     ],
 )
 
-cc_binary(
-    name = "route_guide_async_stream_client",
-    srcs = ["route_guide_async_stream_client.cc"],
-    linkstatic = 1,
+cc_library(
+    name = "client_impl",
+    hdrs = [
+      "client_impl.h",
+    ],
     deps = [
-        "//src/grpc_client/async_stream:route_guide_client",
+        ":tag_base",
         "//src/grpc_server/proto:grpc_service",
-        "//src/grpc_server/util:helper",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_github_gflags_gflags//:gflags",
+        "@glog",
+        "@com_github_gperftools_gperftools//:gperftools",
+        "@jemalloc",
+        "@boost//:algorithm",
+        "@boost//:thread",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_library(
+    name = "client_rpc_tag",
+    hdrs = [
+      "client_rpc_tag.h",
+    ],
+    deps = [
+        ":client_impl",
+        ":tag_base",
+        ":reader_writer",
+        "//src/grpc_server/proto:grpc_service",
         "@com_github_gflags_gflags//:gflags",
         "@glog",
         "@com_github_gperftools_gperftools//:gperftools",
