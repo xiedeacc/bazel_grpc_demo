@@ -45,6 +45,7 @@ using grpc_demo::grpc_server::RouteGuide;
 using grpc_demo::grpc_server::RouteNote;
 using grpc_demo::grpc_server::RouteSummary;
 
+bool g_exit = false;
 Point MakePoint(long latitude, long longitude) {
   Point p;
   p.set_latitude(latitude);
@@ -95,19 +96,18 @@ public:
     notes_.push_back(MakeRouteNote("First message", 0, 0));
     notes_.push_back(MakeRouteNote("Second message", 0, 1));
     notes_.push_back(MakeRouteNote("Third message", 1, 0));
-    notes_.push_back(MakeRouteNote("Fourth message", 0, 0));
+    notes_.push_back(MakeRouteNote("Fourth message", 4, 0));
 
     stream_ = stub_->AsyncRouteChat(&context_, &cq_,
                                     reinterpret_cast<void *>(Type::CONNECT));
-    for (const auto &note : notes_) {
-      Write(note);
-    }
   }
 
 private:
-  void Write(const RouteNote &note) {
+  void Write() {
     static int index = 0;
+    const auto &note = notes_[index];
     if (index == 4) {
+      std::cout << "Sending message done!";
       stream_->WritesDone(reinterpret_cast<void *>(Type::WRITES_DONE));
       return;
     }
@@ -125,10 +125,12 @@ private:
               << response_.location().latitude() << ", "
               << response_.location().longitude() << std::endl;
 
-    stream_->Read(&response_, reinterpret_cast<void *>(Type::WRITE));
+    stream_->Read(&response_, reinterpret_cast<void *>(Type::READ));
+    Write();
   }
 
   void GrpcThread() {
+    Status status;
     while (true) {
       void *got_tag;
       bool ok = false;
@@ -142,20 +144,26 @@ private:
         std::cout << "Read a new message." << std::endl;
         break;
       case Type::WRITE:
-        std::cout << "Sending message (async)." << std::endl;
         Read();
         break;
       case Type::CONNECT:
         std::cout << "Server connected." << std::endl;
+        Write();
         break;
       case Type::WRITES_DONE:
         std::cout << "Write done." << std::endl;
-        Read();
+        stream_->Finish(&status, reinterpret_cast<void *>(Type::FINISH));
+        if (status.ok()) {
+          std::cout << "Finished RouteChat!" << std::endl;
+        } else {
+          std::cout << "RecordRoute rpc failed." << std::endl;
+        }
         break;
       case Type::FINISH:
         std::cout << "Client finish; status = " << (ok ? "ok" : "cancelled")
-                  << std::endl;
-        // context_.TryCancel();
+                  << " " << status.error_code()
+                  << ", msg: " << status.error_message() << std::endl;
+        g_exit = true;
         break;
       default:
         std::cerr << "Unexpected tag " << got_tag << std::endl;
@@ -182,5 +190,8 @@ int main(int argc, char **argv) {
       db);
   std::cout << "-------------- RouteChat --------------" << std::endl;
   guide.RouteChat();
+  while (!g_exit) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  }
   return 0;
 }
