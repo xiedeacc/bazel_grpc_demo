@@ -24,8 +24,8 @@ RouteNote MakeRouteNote(const std::string &message, long latitude,
 
 RouteGuideCall::RouteGuideCall(ClientBase *client) : client(client) {
   stream = client->stub()->AsyncRouteChat(&context, client->cq(), this);
-  writer_ = std::unique_ptr<super::WriterType>(
-      new super::WriterType(this, *(stream.get())));
+  writer_ = std::unique_ptr<Super::WriterType>(
+      new Super::WriterType(this, *(stream.get())));
   writer_->Start();
   // client->AddTag(this);
   std::vector<RouteNote> notes_;

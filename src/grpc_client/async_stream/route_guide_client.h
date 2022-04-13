@@ -2,8 +2,8 @@
 // Created by zjf on 2018/2/13.
 //
 
-#ifndef ROUTE_GUIDE_CLIENT_SERVER_H
-#define ROUTE_GUIDE_CLIENT_SERVER_H
+#ifndef ROUTE_GUIDE_CLIENT_H
+#define ROUTE_GUIDE_CLIENT_H
 
 #include "src/grpc_client/async_stream/grpc_framework/client_impl.h"
 #include <grpc++/channel.h>
@@ -28,4 +28,4 @@ public:
 protected:
 };
 
-#endif // ROUTE_GUIDE_CLIENT_SERVER_H
+#endif // ROUTE_GUIDE_CLIENT_H

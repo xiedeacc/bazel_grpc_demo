@@ -18,7 +18,7 @@ class RouteGuideCall : public grpc_framework::ClientBiStreamRpcTag<
 public:
   typedef grpc_framework::ClientBiStreamRpcTag<
       grpc_demo::grpc_server::RouteNote, grpc_demo::grpc_server::RouteNote>
-      super;
+      Super;
   RouteGuideCall(ClientBase *client);
 
   virtual void OnRead(void *) override;
