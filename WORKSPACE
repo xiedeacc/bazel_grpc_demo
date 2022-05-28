@@ -1,4 +1,5 @@
 workspace(name = "grpc_demo")
+
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -7,7 +8,9 @@ git_repository(
     remote = "https://github.com/bazelbuild/rules_foreign_cc.git",
     tag = "0.7.1",
 )
+
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+
 rules_foreign_cc_dependencies()
 
 git_repository(
@@ -15,13 +18,15 @@ git_repository(
     remote = "https://github.com/grailbio/bazel-compilation-database.git",
     tag = "0.5.2",
 )
+
 load("@com_grail_bazel_compdb//:deps.bzl", "bazel_compdb_deps")
+
 bazel_compdb_deps()
 
 git_repository(
-  name = "rules_cc",
-  remote = "https://github.com/bazelbuild/rules_cc.git",
-  commit = "58f8e026c00a8a20767e3dc669f46ba23bc93bdb",
+    name = "rules_cc",
+    commit = "58f8e026c00a8a20767e3dc669f46ba23bc93bdb",
+    remote = "https://github.com/bazelbuild/rules_cc.git",
 )
 
 git_repository(
@@ -29,8 +34,11 @@ git_repository(
     remote = "https://github.com/bazelbuild/rules_go.git",
     tag = "v0.31.0",
 )
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+
 go_rules_dependencies()
+
 go_register_toolchains(version = "1.18")
 
 git_repository(
@@ -50,8 +58,11 @@ git_repository(
     remote = "https://github.com/bazelbuild/rules_proto.git",
     tag = "4.0.0-3.19.2",
 )
+
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+
 rules_proto_dependencies()
+
 rules_proto_toolchains()
 
 git_repository(
@@ -59,25 +70,27 @@ git_repository(
     remote = "https://github.com/bazelbuild/rules_apple.git",
     tag = "0.34.0",
 )
+
 load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependencies")
+
 apple_rules_dependencies()
 
 git_repository(
     name = "com_google_googleapis",
-    remote = "https://github.com/googleapis/googleapis.git",
     commit = "e1b5a0175f84ef0b7f92b832a4450e6cbe376da7",
+    remote = "https://github.com/googleapis/googleapis.git",
 )
 
 git_repository(
     name = "upb",
-    remote = "https://github.com/protocolbuffers/upb.git",
     commit = "b25e7218ef940036d6253260f8084f2f1143bf38",
+    remote = "https://github.com/protocolbuffers/upb.git",
 )
 
 git_repository(
     name = "envoy_api",
-    remote = "https://github.com/envoyproxy/data-plane-api.git",
     commit = "6290b71f73024a7e19cfee499b13c1e851793b2b",
+    remote = "https://github.com/envoyproxy/data-plane-api.git",
 )
 
 git_repository(
@@ -87,9 +100,9 @@ git_repository(
 )
 
 git_repository(
-    name = "bazel_build_file_repo",
-    remote = "https://github.com/xiedeacc/bazel_build_file_repo.git",
-    commit = "add1c76e1880f616282c0a32ce96ac67ab15493d",
+    name = "bazel_build_repo",
+    commit = "5be2997da3e0ff5e4b635e80d428b6c206e9d7dc",
+    remote = "https://github.com/xiedeacc/bazel_build_repo.git",
 )
 
 #####################################################################
@@ -101,9 +114,12 @@ git_repository(
     remote = "https://github.com/grpc/grpc.git",
     tag = "v1.45.0",
 )
+
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+
 grpc_deps()
+
 grpc_extra_deps()
 
 git_repository(
@@ -119,9 +135,9 @@ git_repository(
 )
 
 git_repository(
-  name = "com_google_googletest",
-  remote = "https://github.com/google/googletest.git",
-  tag = "release-1.11.0",
+    name = "com_google_googletest",
+    remote = "https://github.com/google/googletest.git",
+    tag = "release-1.11.0",
 )
 
 git_repository(
@@ -138,29 +154,30 @@ git_repository(
 
 new_git_repository(
     name = "rapidjson",
-    remote = "https://github.com/Tencent/rapidjson.git",
+    build_file = "@bazel_build_repo//bazel:rapidjson.BUILD",
     commit = "8261c1ddf43f10de00fd8c9a67811d1486b2c784",
-    build_file = "@bazel_build_file_repo//bazel:rapidjson.BUILD",
+    remote = "https://github.com/Tencent/rapidjson.git",
 )
 
 new_git_repository(
     name = "smhasher",
-    remote = "https://github.com/rurban/smhasher.git",
+    build_file = "@bazel_build_repo//bazel:smhasher.BUILD",
     commit = "fb0b59ab911126082d33aaedb934cc2f787f4f5a",
     recursive_init_submodules = True,
-    build_file = "@bazel_build_file_repo//bazel:smhasher.BUILD",
+    remote = "https://github.com/rurban/smhasher.git",
 )
 
 http_archive(
     name = "com_github_gperftools_gperftools",
+    build_file = "@bazel_build_repo//bazel:gperftools.BUILD",
     sha256 = "ea566e528605befb830671e359118c2da718f721c27225cbbc93858c7520fee3",
     strip_prefix = "gperftools-2.9.1",
     urls = ["https://github.com/gperftools/gperftools/releases/download/gperftools-2.9.1/gperftools-2.9.1.tar.gz"],
-    build_file = "@bazel_build_file_repo//bazel:gperftools.BUILD",
 )
+
 bind(
     name = "gperftools",
-    actual = "@bazel_build_file_repo//bazel:gperftools",
+    actual = "@bazel_build_repo//bazel:gperftools",
 )
 
 http_archive(
@@ -169,19 +186,21 @@ http_archive(
     strip_prefix = "rules_boost-ef58870fe00ecb8047cd34324b8c21221387d5fc",
     urls = ["https://github.com/nelhage/rules_boost/archive/ef58870fe00ecb8047cd34324b8c21221387d5fc.tar.gz"],
 )
+
 load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
+
 boost_deps()
 
 new_git_repository(
     name = "jemalloc",
+    build_file = "@bazel_build_repo//bazel:jemalloc.BUILD",
     remote = "https://github.com/jemalloc/jemalloc.git",
     tag = "5.2.1",
-    build_file = "@bazel_build_file_repo//bazel:jemalloc.BUILD",
 )
 
 new_git_repository(
     name = "cpplint",
+    build_file = "@bazel_build_repo//bazel:cpplint.BUILD",
     remote = "https://github.com/cpplint/cpplint.git",
     tag = "1.6.0",
-    build_file = "@bazel_build_file_repo//bazel:cpplint.BUILD",
 )

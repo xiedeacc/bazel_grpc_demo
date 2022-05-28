@@ -3,6 +3,7 @@
 //
 
 #include "src/grpc_client/async_stream/route_guide_call.h"
+#include "grpc_framework/client_rpc_tag.h"
 
 using grpc_demo::grpc_server::Point;
 using grpc_demo::grpc_server::RouteNote;
@@ -24,18 +25,16 @@ RouteNote MakeRouteNote(const std::string &message, long latitude,
 
 RouteGuideCall::RouteGuideCall(ClientBase *client) : client(client) {
   stream = client->stub()->AsyncRouteChat(&context, client->cq(), this);
-  writer_ = std::unique_ptr<Super::WriterType>(
-      new Super::WriterType(this, *(stream.get())));
+  reader_ = std::unique_ptr<SuperTag::ReaderType>(
+      new SuperTag::ReaderType(this, *(stream.get())));
+  writer_ = std::unique_ptr<SuperTag::WriterType>(
+      new SuperTag::WriterType(this, *(stream.get())));
   writer_->Start();
-  // client->AddTag(this);
-  std::vector<RouteNote> notes_;
+  client->AddTag({this, writer_.get(), reader_.get()});
   notes_.push_back(MakeRouteNote("First message", 0, 0));
   notes_.push_back(MakeRouteNote("Second message", 0, 1));
   notes_.push_back(MakeRouteNote("Third message", 1, 0));
   notes_.push_back(MakeRouteNote("Fourth message", 0, 0));
-  for (const auto &note : notes_) {
-    writer_->Write(note);
-  }
 }
 
 void RouteGuideCall::OnRead(void *message) { client->OnRouteChatRead(message); }
@@ -44,10 +43,22 @@ void RouteGuideCall::OnWrite(int write_id) {
   // client->OnRouteChatWrite(message);
 }
 
+void RouteGuideCall::Finish() {
+  status = grpc_framework::ClientRPCStatus::FINISH;
+  stream->Finish(&rpc_status, this);
+  LOG(INFO) << "on_error, error_coe: " << rpc_status.error_code()
+            << ", message: " << rpc_status.error_message().c_str();
+  context.TryCancel();
+}
+
 void RouteGuideCall::Process() {
   if (status == grpc_framework::ClientRPCStatus::CREATE) {
     LOG(INFO) << "RouteGuideCall CREATE";
     status = grpc_framework::ClientRPCStatus::READ;
+    const auto p = writer_->Write(notes_.begin(), notes_.end());
+    if (p.first == -1 && p.second == -1) {
+      LOG(INFO) << "write error";
+    }
     reader_->Read();
   } else if (status == grpc_framework::ClientRPCStatus::FINISH) {
     LOG(INFO) << "RouteGuideCall FINISH";

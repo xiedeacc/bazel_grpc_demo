@@ -7,6 +7,7 @@
 
 #include "src/grpc_client/async_stream/grpc_framework/tag_base.h"
 
+#include "absl/time/clock.h"
 #include "glog/logging.h"
 #include "grpc++/grpc++.h"
 #include "grpc/support/log.h"
@@ -84,14 +85,17 @@ public:
   void Run(std::string address) {
     server_addr = address;
 
-    runnig.store(true, std::memory_order_relaxed);
+    running.store(true, std::memory_order_relaxed);
     thread = std::thread(&this_type::Srv, this);
+    while (running.load()) {
+      absl::SleepFor(absl::Seconds(1));
+    }
   }
 
   virtual void OnRun(){};
 
   void Exit() {
-    runnig.store(false, std::memory_order_relaxed);
+    running.store(false, std::memory_order_relaxed);
     if (thread.joinable()) {
       thread.join();
     }
@@ -106,7 +110,7 @@ public:
 protected:
   void Srv() {
     while (true) {
-      if (!runnig.load(std::memory_order_relaxed)) {
+      if (!running.load(std::memory_order_relaxed)) {
         cq_->Shutdown();
         OnExit();
         return;
@@ -140,11 +144,9 @@ protected:
         TagBase *call = static_cast<TagBase *>(got_tag);
 
         LOG(INFO) << "tag is " << got_tag << " ok == " << ok;
-        if (tags_.find(static_cast<TagBase *>(got_tag)) == tags_.end()) {
-          LOG(INFO) << "invalid tag: " << got_tag;
+        if (got_tag == nullptr) {
           continue;
         }
-
         if (ok) {
           LOG(INFO) << "tag process: " << got_tag;
           call->Process();
@@ -154,7 +156,7 @@ protected:
           call->OnError();
         }
       }
-      std::cout << "Completion queue is shutting down. Restart it" << std::endl;
+      std::cout << "completion queue is shutting down. restart it" << std::endl;
       RemoveTag({ChannelStateMonitor_.get()});
 
       std::this_thread::yield();
@@ -177,7 +179,7 @@ protected:
   std::unique_ptr<grpc::CompletionQueue> cq_;
   std::unique_ptr<typename ServiceType::Stub> stub_;
 
-  std::atomic<bool> runnig;
+  std::atomic<bool> running;
   std::thread thread;
 
   std::set<TagBase *> tags_;

@@ -11,6 +11,7 @@
 #include "src/grpc_client/async_stream/grpc_framework/tag_base.h"
 
 #include "grpc++/grpc++.h"
+#include <grpcpp/support/status.h>
 
 namespace grpc_framework {
 
@@ -29,13 +30,18 @@ class ClientUnaryStreamRpcTag : public TagBase, public ReaderCallback {
 public:
   ClientUnaryStreamRpcTag() { status = ClientRPCStatus::CREATE; };
 
+  virtual ~ClientUnaryStreamRpcTag() {}
+
   virtual void Process() override = 0;
+
+  virtual void Finish() = 0;
 
   virtual void OnError() override {
     status = ClientRPCStatus::FINISH;
+    stream->Finish(&rpc_status, this);
+    LOG(INFO) << "on_error, error_code: " << rpc_status.error_code()
+              << ", message: " << rpc_status.error_message().c_str();
     context.TryCancel();
-    //        stream->Finish(&rpc_status, this);
-    this->Process();
   };
 
   virtual void OnRead(void *message) override = 0;
@@ -46,6 +52,7 @@ protected:
   // client_server_impl<SERVICE>* client;
   grpc::ClientContext context;
   ClientRPCStatus status;
+  grpc::Status rpc_status;
 
   std::unique_ptr<grpc::ClientAsyncReader<ResponseType>> stream;
   typedef Reader<ResponseType, grpc::ClientAsyncReader<ResponseType>>
@@ -62,11 +69,17 @@ class ClientBiStreamRpcTag : public TagBase,
 public:
   ClientBiStreamRpcTag() { status = ClientRPCStatus::CREATE; };
 
+  virtual ~ClientBiStreamRpcTag() {}
+
   virtual void Process() override = 0;
+
+  virtual void Finish() = 0;
 
   virtual void OnError() override {
     status = ClientRPCStatus::FINISH;
-    //        stream->Finish(&rpc_status, this);
+    stream->Finish(&rpc_status, this);
+    LOG(INFO) << "on_error, error_coe: " << rpc_status.error_code()
+              << ", message: " << rpc_status.error_message().c_str();
     context.TryCancel();
     this->Process();
   };
@@ -79,11 +92,10 @@ public:
 
   virtual void OnWriteError() override { OnError(); };
 
-  int Write(const RequestType &request) { return writer_->Write(request); };
-
 protected:
   grpc::ClientContext context;
   ClientRPCStatus status;
+  grpc::Status rpc_status;
 
   std::unique_ptr<grpc::ClientAsyncReaderWriter<RequestType, ResponseType>>
       stream;

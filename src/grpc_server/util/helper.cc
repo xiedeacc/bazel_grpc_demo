@@ -33,7 +33,7 @@ std::string GetDbFileContent(int argc, char **argv) {
       }
     }
   } else {
-    db_path = "/root/tmp/db.json";
+    db_path = "data/route_guide_db.json";
   }
   std::ifstream db_file(db_path);
   if (!db_file.is_open()) {

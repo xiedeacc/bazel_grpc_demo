@@ -27,7 +27,7 @@ class Writer : public TagBase {
 public:
   Writer(WriterCallback *cb, WriterType &async_writer,
          size_t buf_size = 1024 * 1024 * 32)
-      : callback_(*cb), writer_impl_(async_writer) {
+      : callback_(*cb), writer_impl_(async_writer), finish_(false) {
     auto_write_ = true;
     max_buffer_size_ = buf_size;
     cur_buffer_size_ = 0;
@@ -44,6 +44,8 @@ public:
     if (status_ == STOP) {
       status_ = IDLE;
     }
+    write_buffer_.clear();
+    finish_ = false;
   }
 
   void Stop() {
@@ -121,6 +123,8 @@ public:
     return {original, input_id - 1};
   }
 
+  /// 发送队列中的下一个数据。仅当set_auto(false)时使用。
+  /// 注意：此处没有线程同步。
   void WriteNext() {
     if (status_ == STOP || status_ == IDLE) {
       return;
@@ -134,11 +138,20 @@ public:
   }
 
   virtual void Process() {
+    static int count = 0;
+    LOG(INFO) << ++count;
+    // std::this_thread::sleep_for(std::chrono::milliseconds(1000 * 10));
+
     lock_t lock(mtx_);
-    if (status_ == STOP) {
+    if (status_ == DONE) {
+      LOG(INFO) << "write done!";
+      status_ = IDLE;
+      if (!write_buffer_.empty()) {
+        writer_impl_.Write(*write_buffer_.front(), this);
+        status_ = WRITING;
+      }
       return;
     }
-    GPR_ASSERT(write_buffer_.size() >= 1);
     RequestType *w = write_buffer_.front();
     write_buffer_.pop_front();
     google::protobuf::Arena *arena = w->GetArena();
@@ -147,19 +160,23 @@ public:
       delete arena;
     }
     callback_.OnWrite(output_id++);
+
+    if (write_buffer_.empty()) {
+      writer_impl_.WritesDone(this);
+      status_ = DONE;
+      return;
+    }
     if (write_buffer_.size() > 0) {
       if (auto_write_) {
         writer_impl_.Write(*write_buffer_.front(), this);
       }
-    } else {
-      status_ = IDLE;
     }
   };
 
   virtual void OnError() { callback_.OnWriteError(); }
 
 private:
-  enum CallStatus { IDLE, WRITING, STOP };
+  enum CallStatus { IDLE, WRITING, DONE, STOP };
   CallStatus status_;
 
   typedef std::unique_lock<std::mutex> lock_t;
@@ -172,6 +189,7 @@ private:
   WriterCallback &callback_;
   WriterType &writer_impl_;
 
+  std::atomic<bool> finish_;
   int input_id;
   int output_id;
 
