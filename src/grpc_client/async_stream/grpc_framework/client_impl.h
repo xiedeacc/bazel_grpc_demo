@@ -144,9 +144,11 @@ protected:
         TagBase *call = static_cast<TagBase *>(got_tag);
 
         LOG(INFO) << "tag is " << got_tag << " ok == " << ok;
-        if (got_tag == nullptr) {
+        if (tags_.find(static_cast<TagBase *>(got_tag)) == tags_.end()) {
+          LOG(INFO) << "invalid tag: " << got_tag;
           continue;
         }
+
         if (ok) {
           LOG(INFO) << "tag process: " << got_tag;
           call->Process();

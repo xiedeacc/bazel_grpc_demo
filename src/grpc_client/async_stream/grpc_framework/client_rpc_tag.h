@@ -41,7 +41,9 @@ public:
     stream->Finish(&rpc_status, this);
     LOG(INFO) << "on_error, error_code: " << rpc_status.error_code()
               << ", message: " << rpc_status.error_message().c_str();
-    context.TryCancel();
+    // below code better perfomance, but not so formal
+    // context.TryCancel();
+    // this->Process();
   };
 
   virtual void OnRead(void *message) override = 0;
@@ -76,10 +78,11 @@ public:
   virtual void Finish() = 0;
 
   virtual void OnError() override {
-    status = ClientRPCStatus::FINISH;
-    stream->Finish(&rpc_status, this);
-    LOG(INFO) << "on_error, error_coe: " << rpc_status.error_code()
-              << ", message: " << rpc_status.error_message().c_str();
+    // status = ClientRPCStatus::FINISH;
+    // stream->Finish(&rpc_status, this);
+    // LOG(INFO) << "on_error, error_coe: " << rpc_status.error_code()
+    //<< ", message: " << rpc_status.error_message().c_str();
+    // below code better perfomance, but not so formal
     context.TryCancel();
     this->Process();
   };

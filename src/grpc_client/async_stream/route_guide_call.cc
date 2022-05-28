@@ -62,7 +62,7 @@ void RouteGuideCall::Process() {
     reader_->Read();
   } else if (status == grpc_framework::ClientRPCStatus::FINISH) {
     LOG(INFO) << "RouteGuideCall FINISH";
-    client->RemoveTag({this, reader_.get()});
+    client->RemoveTag({this, reader_.get(), writer_.get()});
     delete this;
   }
 }
