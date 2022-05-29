@@ -11,21 +11,23 @@
 
 #include <grpcpp/completion_queue.h>
 
-#include "src/grpc_async_stream_server/handler/base_handler.h"
-#include "src/grpc_async_stream_server/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_async_stream_server/handler/client_streaming_handler.h"
-#include "src/grpc_async_stream_server/handler/server_streaming_handler.h"
-#include "src/grpc_async_stream_server/handler/unary_handler.h"
-#include "src/grpc_async_stream_server/job/base_job.h"
+#include "src/grpc_server/grpc_async_stream_server/handler/base_handler.h"
+#include "src/grpc_server/grpc_async_stream_server/handler/bidirectional_streaming_handler.h"
+#include "src/grpc_server/grpc_async_stream_server/handler/client_streaming_handler.h"
+#include "src/grpc_server/grpc_async_stream_server/handler/server_streaming_handler.h"
+#include "src/grpc_server/grpc_async_stream_server/handler/unary_handler.h"
+#include "src/grpc_server/grpc_async_stream_server/job/base_job.h"
 
 namespace grpc_demo {
+namespace grpc_server {
 namespace grpc_async_stream_server {
 namespace job {
 
 template <typename ServiceType, typename RequestType, typename ResponseType>
 class BidirectionalStreamingJob : public BaseJob {
-  using ThisJobTypeHandlers = grpc_demo::grpc_async_stream_server::handler::
-      BidirectionalStreamingHandlers<ServiceType, RequestType, ResponseType>;
+  using ThisJobTypeHandlers = grpc_demo::grpc_server::grpc_async_stream_server::
+      handler::BidirectionalStreamingHandlers<ServiceType, RequestType,
+                                              ResponseType>;
 
 public:
   BidirectionalStreamingJob(ServiceType *service,
@@ -259,6 +261,7 @@ private:
 
 } // namespace job
 } // namespace grpc_async_stream_server
+} // namespace grpc_server
 } // namespace grpc_demo
 
 #endif // JOB_BI_STREAMING_JOB_H

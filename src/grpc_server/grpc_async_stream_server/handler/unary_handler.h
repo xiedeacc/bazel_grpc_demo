@@ -9,9 +9,10 @@
 
 #include <grpcpp/completion_queue.h>
 
-#include "src/grpc_async_stream_server//handler/base_handler.h"
+#include "src/grpc_server/grpc_async_stream_server/handler/base_handler.h"
 
 namespace grpc_demo {
+namespace grpc_server {
 namespace grpc_async_stream_server {
 namespace handler {
 
@@ -30,6 +31,7 @@ public:
 
 } // namespace handler
 } // namespace grpc_async_stream_server
+} // namespace grpc_server
 } // namespace grpc_demo
 
 #endif // HANDLER_UNARY_HANDLER_H

@@ -15,6 +15,7 @@
 #include "grpc++/grpc++.h"
 
 namespace grpc_demo {
+namespace grpc_server {
 namespace grpc_async_stream_server {
 namespace job {
 
@@ -109,6 +110,7 @@ protected:
 
 } // namespace job
 } // namespace grpc_async_stream_server
+} // namespace grpc_server
 } // namespace grpc_demo
 
 #endif

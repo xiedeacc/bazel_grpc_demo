@@ -13,8 +13,8 @@
 #include "boost/thread/thread_pool.hpp"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
-#include "src/grpc_async_stream_server/server_impl.h"
-#include "src/grpc_async_stream_server/tag_info.h"
+#include "src/grpc_server/grpc_async_stream_server/server_impl.h"
+#include "src/grpc_server/grpc_async_stream_server/tag_info.h"
 
 using grpc::CompletionQueue;
 using grpc::InsecureServerCredentials;
@@ -26,7 +26,8 @@ using std::string;
 using std::to_string;
 using std::unique_ptr;
 
-using TagList = std::list<grpc_demo::grpc_async_stream_server::TagInfo>;
+using TagList =
+    std::list<grpc_demo::grpc_server::grpc_async_stream_server::TagInfo>;
 static void randomSleepThisThread(int lowerBoundMS, int upperBoundMS) {
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine generator(seed);
@@ -45,7 +46,8 @@ static void processRpcs(std::mutex *incoming_tags_mutex,
     incoming_tags_mutex->unlock();
 
     while (!tags.empty()) {
-      grpc_demo::grpc_async_stream_server::TagInfo tagInfo = tags.front();
+      grpc_demo::grpc_server::grpc_async_stream_server::TagInfo tagInfo =
+          tags.front();
       tags.pop_front();
       (*(tagInfo.tagProcessor))(tagInfo.ok);
       randomSleepThisThread(); // Simulate processing Time
@@ -63,7 +65,7 @@ int main(int argc, char **argv) {
 
   std::string db_content =
       grpc_demo::common::util::GetDbFileContent(argc, argv);
-  grpc_demo::grpc_async_stream_server::ServerImpl server(
+  grpc_demo::grpc_server::grpc_async_stream_server::ServerImpl server(
       db_content, incoming_tags_mutex, incoming_tags);
   server.Run();
 

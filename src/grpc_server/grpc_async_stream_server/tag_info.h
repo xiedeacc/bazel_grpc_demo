@@ -13,6 +13,7 @@
 #include <vector>
 
 namespace grpc_demo {
+namespace grpc_server {
 namespace grpc_async_stream_server {
 
 struct TagInfo {
@@ -21,6 +22,7 @@ struct TagInfo {
 };
 
 } // namespace grpc_async_stream_server
+} // namespace grpc_server
 } // namespace grpc_demo
 
 #endif // TAG_INFO_H
