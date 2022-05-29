@@ -7,9 +7,9 @@
 #include <string>
 #include <thread>
 
-#include "src/grpc_server/proto/grpc_service.grpc.pb.h"
-#include "src/grpc_server/proto/grpc_service.pb.h"
-#include "src/grpc_server/util/helper.h"
+#include "src/common/proto/grpc_service.grpc.pb.h"
+#include "src/common/proto/grpc_service.pb.h"
+#include "src/common/util/helper.h"
 #include <grpc/grpc.h>
 #include <grpcpp/alarm.h>
 #include <grpcpp/channel.h>
@@ -20,12 +20,12 @@
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-using grpc_demo::grpc_server::Feature;
-using grpc_demo::grpc_server::Point;
-using grpc_demo::grpc_server::Rectangle;
-using grpc_demo::grpc_server::RouteGuide;
-using grpc_demo::grpc_server::RouteNote;
-using grpc_demo::grpc_server::RouteSummary;
+using grpc_demo::common::proto::Feature;
+using grpc_demo::common::proto::Point;
+using grpc_demo::common::proto::Rectangle;
+using grpc_demo::common::proto::RouteGuide;
+using grpc_demo::common::proto::RouteNote;
+using grpc_demo::common::proto::RouteSummary;
 
 bool g_exit = false;
 Point MakePoint(long latitude, long longitude) {
@@ -61,7 +61,7 @@ class RouteGuideClient {
 
 public:
   RouteGuideClient(std::shared_ptr<Channel> channel, const std::string &db)
-      : stub_(grpc_demo::grpc_server::RouteGuide::NewStub(channel)) {
+      : stub_(grpc_demo::common::proto::RouteGuide::NewStub(channel)) {
     grpc_thread_.reset(
         new std::thread(std::bind(&RouteGuideClient::GrpcThread, this)));
     // context_.AsyncNotifyWhenDone(reinterpret_cast<void *>(Type::FINISH));
@@ -157,7 +157,7 @@ private:
   grpc::ClientContext context_;
   grpc::CompletionQueue cq_;
   std::vector<RouteNote> notes_;
-  std::unique_ptr<grpc_demo::grpc_server::RouteGuide::Stub> stub_;
+  std::unique_ptr<grpc_demo::common::proto::RouteGuide::Stub> stub_;
   std::unique_ptr<grpc::ClientAsyncReaderWriter<RouteNote, RouteNote>> stream_;
   RouteNote response_;
   std::unique_ptr<std::thread> grpc_thread_;
@@ -165,7 +165,7 @@ private:
 };
 
 int main(int argc, char **argv) {
-  std::string db = grpc_demo::grpc_server::util::GetDbFileContent(argc, argv);
+  std::string db = grpc_demo::common::util::GetDbFileContent(argc, argv);
   RouteGuideClient guide(
       grpc::CreateChannel("localhost:50051",
                           grpc::InsecureChannelCredentials()),

@@ -3,11 +3,14 @@
 //
 
 #include "src/grpc_client/async_stream/route_guide_client.h"
+#include "src/common/proto/grpc_service.pb.h"
 #include "src/grpc_client/async_stream/route_guide_call.h"
-#include "src/grpc_server/proto/grpc_service.pb.h"
 #include <grpc++/create_channel.h>
 
-using grpc_demo::grpc_server::RouteNote;
+namespace grpc_demo {
+namespace grpc_client {
+namespace async_stream {
+using grpc_demo::common::proto::RouteNote;
 
 RouteGuideClient::RouteGuideClient() {}
 
@@ -28,3 +31,6 @@ void RouteGuideClient::OnRouteChatWrite(void *message) {
             << note->location().latitude() << ", "
             << note->location().longitude() << std::endl;
 }
+} // namespace async_stream
+} // namespace grpc_client
+} // namespace grpc_demo

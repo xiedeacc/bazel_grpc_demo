@@ -5,16 +5,19 @@
 #ifndef ROUTE_GUIDE_CLIENT_H
 #define ROUTE_GUIDE_CLIENT_H
 
-#include "src/grpc_client/async_stream/grpc_framework/client_impl.h"
+#include "src/common/grpc_framework/client_impl.h"
 #include <grpc++/channel.h>
 #include <grpc++/client_context.h>
 #include <grpc/grpc.h>
 
+#include "src/common/proto/grpc_service.grpc.pb.h"
+#include "src/common/proto/grpc_service.pb.h"
 #include "src/grpc_client/async_stream/client_base.h"
-#include "src/grpc_server/proto/grpc_service.grpc.pb.h"
-#include "src/grpc_server/proto/grpc_service.pb.h"
 #include <thread>
 
+namespace grpc_demo {
+namespace grpc_client {
+namespace async_stream {
 class RouteGuideClient : public ClientBase {
 public:
   RouteGuideClient();
@@ -28,4 +31,7 @@ public:
 protected:
 };
 
+} // namespace async_stream
+} // namespace grpc_client
+} // namespace grpc_demo
 #endif // ROUTE_GUIDE_CLIENT_H

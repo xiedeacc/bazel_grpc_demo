@@ -1,0 +1,8 @@
+syntax = "proto3";
+package grpc_demo.common.proto;
+
+enum ErrorCode {
+  SUCCESS = 0;
+  FAST_FAIL = 1;
+  FAIL = 2;
+}

@@ -7,11 +7,11 @@
 #include <string>
 #include <thread>
 
+#include "src/common/proto/grpc_service.grpc.pb.h"
+#include "src/common/proto/grpc_service.pb.h"
+#include "src/common/util/helper.h"
 #include "src/grpc_client/async_stream/route_guide_call.h"
 #include "src/grpc_client/async_stream/route_guide_client.h"
-#include "src/grpc_server/proto/grpc_service.grpc.pb.h"
-#include "src/grpc_server/proto/grpc_service.pb.h"
-#include "src/grpc_server/util/helper.h"
 #include <grpc/grpc.h>
 #include <grpcpp/alarm.h>
 #include <grpcpp/channel.h>
@@ -22,15 +22,15 @@
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-using grpc_demo::grpc_server::Feature;
-using grpc_demo::grpc_server::Point;
-using grpc_demo::grpc_server::Rectangle;
-using grpc_demo::grpc_server::RouteGuide;
-using grpc_demo::grpc_server::RouteNote;
-using grpc_demo::grpc_server::RouteSummary;
+using grpc_demo::common::proto::Feature;
+using grpc_demo::common::proto::Point;
+using grpc_demo::common::proto::Rectangle;
+using grpc_demo::common::proto::RouteGuide;
+using grpc_demo::common::proto::RouteNote;
+using grpc_demo::common::proto::RouteSummary;
 
 int main(int argc, char **argv) {
-  RouteGuideClient guide;
+  grpc_demo::grpc_client::async_stream::RouteGuideClient guide;
   std::cout << "-------------- RouteChat --------------" << std::endl;
   guide.Run("localhost:50051");
   while (true) {

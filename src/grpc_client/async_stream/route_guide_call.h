@@ -1,19 +1,23 @@
 #ifndef ROUTE_GUIDE_CALL_H
 #define ROUTE_GUIDE_CALL_H
 
+#include "src/common/grpc_framework/client_rpc_tag.h"
+#include "src/common/proto/grpc_service.grpc.pb.h"
+#include "src/common/proto/grpc_service.pb.h"
 #include "src/grpc_client/async_stream/client_base.h"
-#include "src/grpc_client/async_stream/grpc_framework/client_rpc_tag.h"
-#include "src/grpc_server/proto/grpc_service.grpc.pb.h"
-#include "src/grpc_server/proto/grpc_service.pb.h"
 #include <list>
 #include <string>
 
-class RouteGuideCall : public grpc_framework::ClientBiStreamRpcTag<
-                           grpc_demo::grpc_server::RouteNote,
-                           grpc_demo::grpc_server::RouteNote> {
+namespace grpc_demo {
+namespace grpc_client {
+namespace async_stream {
+class RouteGuideCall
+    : public grpc_demo::common::grpc_framework::ClientBiStreamRpcTag<
+          grpc_demo::common::proto::RouteNote,
+          grpc_demo::common::proto::RouteNote> {
 public:
-  typedef grpc_framework::ClientBiStreamRpcTag<
-      grpc_demo::grpc_server::RouteNote, grpc_demo::grpc_server::RouteNote>
+  typedef grpc_demo::common::grpc_framework::ClientBiStreamRpcTag<
+      grpc_demo::common::proto::RouteNote, grpc_demo::common::proto::RouteNote>
       SuperTag;
   RouteGuideCall(ClientBase *client);
 
@@ -25,7 +29,10 @@ public:
 
 private:
   ClientBase *client;
-  std::list<grpc_demo::grpc_server::RouteNote> notes_;
+  std::list<grpc_demo::common::proto::RouteNote> notes_;
 };
 
+} // namespace async_stream
+} // namespace grpc_client
+} // namespace grpc_demo
 #endif // ROUTE_GUIDE_CALL_H

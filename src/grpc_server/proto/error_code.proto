@@ -1,8 +1,0 @@
-syntax = "proto3";
-package grpc_demo.grpc_server;
-
-enum ErrorCode {
-  SUCCESS = 0;
-  FAST_FAIL = 1;
-  FAIL = 2;
-}

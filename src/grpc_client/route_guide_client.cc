@@ -23,9 +23,9 @@
 #include <string>
 #include <thread>
 
-#include "src/grpc_server/proto/grpc_service.grpc.pb.h"
-#include "src/grpc_server/proto/grpc_service.pb.h"
-#include "src/grpc_server/util/helper.h"
+#include "src/common/proto/grpc_service.grpc.pb.h"
+#include "src/common/proto/grpc_service.pb.h"
+#include "src/common/util/helper.h"
 
 #include <grpc/grpc.h>
 #include <grpcpp/channel.h>
@@ -39,12 +39,12 @@ using grpc::ClientReader;
 using grpc::ClientReaderWriter;
 using grpc::ClientWriter;
 using grpc::Status;
-using grpc_demo::grpc_server::Feature;
-using grpc_demo::grpc_server::Point;
-using grpc_demo::grpc_server::Rectangle;
-using grpc_demo::grpc_server::RouteGuide;
-using grpc_demo::grpc_server::RouteNote;
-using grpc_demo::grpc_server::RouteSummary;
+using grpc_demo::common::proto::Feature;
+using grpc_demo::common::proto::Point;
+using grpc_demo::common::proto::Rectangle;
+using grpc_demo::common::proto::RouteGuide;
+using grpc_demo::common::proto::RouteNote;
+using grpc_demo::common::proto::RouteSummary;
 
 Point MakePoint(long latitude, long longitude) {
   Point p;
@@ -71,8 +71,8 @@ RouteNote MakeRouteNote(const std::string &message, long latitude,
 class RouteGuideClient {
 public:
   RouteGuideClient(std::shared_ptr<Channel> channel, const std::string &db)
-      : stub_(grpc_demo::grpc_server::RouteGuide::NewStub(channel)) {
-    grpc_demo::grpc_server::util::ParseDb(db, &feature_list_);
+      : stub_(grpc_demo::common::proto::RouteGuide::NewStub(channel)) {
+    grpc_demo::common::util::ParseDb(db, &feature_list_);
   }
 
   void GetFeature() {
@@ -85,7 +85,7 @@ public:
   }
 
   void ListFeatures() {
-    grpc_demo::grpc_server::Rectangle rect;
+    grpc_demo::common::proto::Rectangle rect;
     Feature feature;
     ClientContext context;
 
@@ -208,13 +208,13 @@ private:
   }
 
   const float kCoordFactor_ = 10000000.0;
-  std::unique_ptr<grpc_demo::grpc_server::RouteGuide::Stub> stub_;
+  std::unique_ptr<grpc_demo::common::proto::RouteGuide::Stub> stub_;
   std::vector<Feature> feature_list_;
 };
 
 int main(int argc, char **argv) {
   // Expect only arg: --db_path=path/to/route_guide_db.json.
-  std::string db = grpc_demo::grpc_server::util::GetDbFileContent(argc, argv);
+  std::string db = grpc_demo::common::util::GetDbFileContent(argc, argv);
   RouteGuideClient guide(
       grpc::CreateChannel("localhost:50051",
                           grpc::InsecureChannelCredentials()),
