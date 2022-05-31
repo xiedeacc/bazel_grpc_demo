@@ -152,7 +152,8 @@ public:
     while (stream->Read(&note)) {
       std::unique_lock<std::mutex> lock(mu_);
       for (const RouteNote &n : received_notes_) {
-        if (n.location().latitude() == note.location().latitude() &&
+        if (n.message() == note.message() &&
+            n.location().latitude() == note.location().latitude() &&
             n.location().longitude() == note.location().longitude()) {
           stream->Write(n);
         }
