@@ -17,11 +17,13 @@
  */
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
 
 #include "src/common/util/helper.h"
 
