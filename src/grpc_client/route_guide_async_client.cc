@@ -78,7 +78,7 @@ public:
     notes_.push_back(MakeRouteNote("First message", 0, 0));
     notes_.push_back(MakeRouteNote("Second message", 0, 1));
     notes_.push_back(MakeRouteNote("Third message", 1, 0));
-    notes_.push_back(MakeRouteNote("Fourth message", 4, 0));
+    notes_.push_back(MakeRouteNote("Fourth message", 1, 1));
 
     stream_ = stub_->AsyncRouteChat(&context_, &cq_,
                                     reinterpret_cast<void *>(Type::CONNECT));
@@ -89,7 +89,7 @@ private:
     static int index = 0;
     const auto &note = notes_[index];
     if (index == 4) {
-      std::cout << "Sending message done!";
+      std::cout << "Sending message done!" << std::endl;
       stream_->WritesDone(reinterpret_cast<void *>(Type::WRITES_DONE));
       return;
     }
@@ -103,11 +103,10 @@ private:
   }
 
   void Read() {
+    stream_->Read(&response_, reinterpret_cast<void *>(Type::READ));
     std::cout << "Got message " << response_.message() << " at "
               << response_.location().latitude() << ", "
               << response_.location().longitude() << std::endl;
-
-    stream_->Read(&response_, reinterpret_cast<void *>(Type::READ));
   }
 
   void GrpcThread() {
@@ -120,26 +119,34 @@ private:
         break;
       }
 
+      if (!ok) {
+        std::cout << "ok: " << (ok ? "true" : "false") << std::endl;
+        g_exit = true;
+        continue;
+      }
+
       switch (static_cast<Type>(reinterpret_cast<long>(got_tag))) {
       case Type::READ:
         std::cout << "Read a new message." << std::endl;
-        Write();
+        Read();
         break;
       case Type::WRITE:
-        Read();
+        std::cout << "Write a new message." << std::endl;
+        Write();
         break;
       case Type::CONNECT:
         std::cout << "Server connected." << std::endl;
         Write();
+        Read();
         break;
       case Type::WRITES_DONE:
         std::cout << "Write done." << std::endl;
-        stream_->Finish(&status, reinterpret_cast<void *>(Type::FINISH));
-        if (status.ok()) {
-          std::cout << "Finished RouteChat!" << std::endl;
-        } else {
-          std::cout << "RecordRoute rpc failed." << std::endl;
-        }
+        // stream_->Finish(&status, reinterpret_cast<void *>(Type::FINISH));
+        // if (status.ok()) {
+        // std::cout << "Finished RouteChat!" << std::endl;
+        //} else {
+        // std::cout << "RecordRoute rpc failed." << std::endl;
+        //}
         break;
       case Type::FINISH:
         std::cout << "Client finish; status = " << (ok ? "ok" : "cancelled")

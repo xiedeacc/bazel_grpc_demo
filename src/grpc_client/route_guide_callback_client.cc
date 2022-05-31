@@ -145,10 +145,12 @@ public:
       }
       void OnWriteDone(bool ok) override {
         // Delay and then do the next write or WritesDone
-        alarm_.Set(
-            std::chrono::system_clock::now() +
-                std::chrono::milliseconds(delay_distribution_(generator_)),
-            [this](bool /*ok*/) { NextWrite(); });
+
+        // alarm_.Set(
+        // std::chrono::system_clock::now() +
+        // std::chrono::milliseconds(delay_distribution_(generator_)),
+        //[this](bool [>ok<]) { NextWrite(); });
+        NextWrite();
       }
       void OnDone(const Status &s) override {
         std::unique_lock<std::mutex> l(mu_);
@@ -214,7 +216,7 @@ public:
           : notes_{MakeRouteNote("First message", 0, 0),
                    MakeRouteNote("Second message", 0, 1),
                    MakeRouteNote("Third message", 1, 0),
-                   MakeRouteNote("Fourth message", 0, 0)},
+                   MakeRouteNote("Fourth message", 1, 1)},
             notes_iterator_(notes_.begin()) {
         stub->async()->RouteChat(&context_, this);
         NextWrite();

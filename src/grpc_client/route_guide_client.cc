@@ -160,7 +160,7 @@ public:
       std::vector<RouteNote> notes{MakeRouteNote("First message", 0, 0),
                                    MakeRouteNote("Second message", 0, 1),
                                    MakeRouteNote("Third message", 1, 0),
-                                   MakeRouteNote("Fourth message", 1, 0)};
+                                   MakeRouteNote("Fourth message", 1, 1)};
       for (const RouteNote &note : notes) {
         std::cout << "Sending message " << note.message() << " at "
                   << note.location().latitude() << ", "

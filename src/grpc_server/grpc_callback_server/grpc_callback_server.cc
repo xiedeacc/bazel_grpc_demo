@@ -210,7 +210,8 @@ public:
           std::copy_if(received_notes_->begin(), received_notes_->end(),
                        std::back_inserter(to_send_notes_),
                        [this](const RouteNote &note) {
-                         return note.location().latitude() ==
+                         return note.message() == note_.message() &&
+                                note.location().latitude() ==
                                     note_.location().latitude() &&
                                 note.location().longitude() ==
                                     note_.location().longitude();
