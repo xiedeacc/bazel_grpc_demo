@@ -5,15 +5,15 @@
 
 #include "src/common/proto/grpc_service.grpc.pb.h"
 #include "src/common/proto/grpc_service.pb.h"
-#include "src/grpc_server/grpc_async_stream_server/job/base_job.h"
-#include "src/grpc_server/grpc_async_stream_server/job/bidirectional_streaming_job.h"
-#include "src/grpc_server/grpc_async_stream_server/job/client_streaming_job.h"
-#include "src/grpc_server/grpc_async_stream_server/job/server_streaming_job.h"
-#include "src/grpc_server/grpc_async_stream_server/job/unary_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/base_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/bidirectional_streaming_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/client_streaming_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/server_streaming_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/unary_job.h"
 
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_callback_stream_server {
 namespace job {
 
 template <>
@@ -41,6 +41,6 @@ std::atomic<int32_t>
              grpc_demo::common::proto::Feature>::gUnaryJobCounter(0);
 
 } // namespace job
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_callback_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo

@@ -14,14 +14,14 @@
 
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_state_stream_server {
 
 struct TagInfo {
   std::function<void(bool)> *tagProcessor;
   bool ok;
 };
 
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_state_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 

@@ -11,23 +11,24 @@
 
 #include <grpcpp/completion_queue.h>
 
-#include "src/grpc_server/grpc_async_stream_server/handler/base_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/client_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/server_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/unary_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/job/base_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/base_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/bidirectional_streaming_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/client_streaming_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/server_streaming_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/unary_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/base_job.h"
 
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_callback_stream_server {
 namespace job {
 
 template <typename ServiceType, typename RequestType, typename ResponseType>
 class BidirectionalStreamingJob : public BaseJob {
-  using ThisJobTypeHandlers = grpc_demo::grpc_server::grpc_async_stream_server::
-      handler::BidirectionalStreamingHandlers<ServiceType, RequestType,
-                                              ResponseType>;
+  using ThisJobTypeHandlers =
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::handler::
+          BidirectionalStreamingHandlers<ServiceType, RequestType,
+                                         ResponseType>;
 
 public:
   BidirectionalStreamingJob(ServiceType *service,
@@ -179,63 +180,6 @@ private:
               << gBidirectionalStreamingJobCounter;
   }
 
-  /* another implement
-  void Proceed(bool ok) {
-      std::unique_lock<std::mutex> _wlock(this->m_mutex);
-    switch (status_) {
-    case BidiStatus::READ:
-
-        //Meaning client said it wants to end the stream either by a 'writedone'
-  or 'finish' call. if (!ok) { std::cout << "thread:" <<
-  std::this_thread::get_id() << " tag:" << this << " CQ returned false." <<
-  std::endl; Status _st(StatusCode::OUT_OF_RANGE,"test error msg");
-            rw_.Finish(_st,(void*)this);
-            status_ = BidiStatus::DONE;
-            std::cout << "thread:" << std::this_thread::get_id() << " tag:" <<
-  this << " after call Finish(), cancelled:" << this->ctx_.IsCancelled() <<
-  std::endl; break;
-        }
-
-        std::cout << "thread:" << std::this_thread::get_id() << " tag:" << this
-  << " Read a new message:" << request_.name() << std::endl;
-
-        reply_.set_message("arthur");
-        rw_.Write(reply_, (void*)this);
-
-        status_ = BidiStatus::WRITE;
-        break;
-
-    case BidiStatus::WRITE:
-        std::cout << "thread:" << std::this_thread::get_id() << " tag:" << this
-  << " Written a message:" << reply_.message() << std::endl; rw_.Read(&request_,
-  (void*)this); status_ = BidiStatus::READ; break;
-
-    case BidiStatus::CONNECT:
-        std::cout << "thread:" << std::this_thread::get_id() << " tag:" << this
-  << " connected:" << std::endl; new CallDataBidi(service_, cq_);
-        rw_.Read(&request_, (void*)this);
-        status_ = BidiStatus::READ;
-        break;
-
-    case BidiStatus::DONE:
-        std::cout << "thread:" << std::this_thread::get_id() << " tag:" << this
-                << " Server done, cancelled:" << this->ctx_.IsCancelled() <<
-  std::endl; status_ = BidiStatus::FINISH; break;
-
-    case BidiStatus::FINISH:
-        std::cout << "thread:" << std::this_thread::get_id() <<  "tag:" << this
-  << " Server finish, cancelled:" << this->ctx_.IsCancelled() << std::endl;
-        _wlock.unlock();
-        delete this;
-        break;
-
-    default:
-        std::cerr << "Unexpected tag " << int(status_) << std::endl;
-        assert(false);
-    }
-  }
-*/
-
 public:
   static std::atomic<int32_t> gBidirectionalStreamingJobCounter;
 
@@ -260,7 +204,7 @@ private:
 };
 
 } // namespace job
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_callback_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 

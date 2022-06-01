@@ -9,28 +9,29 @@
 
 #include <grpcpp/completion_queue.h>
 
-#include "src/grpc_server/grpc_async_stream_server/handler/base_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/base_handler.h"
 
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_state_stream_server {
 namespace handler {
 
 template <typename ServiceType, typename RequestType, typename ResponseType>
-struct BidirectionalStreamingHandlers
-    : public BaseHandlers<ServiceType, RequestType, ResponseType> {
+struct BidirectionalStreamingHandler
+    : public BaseHandler<ServiceType, RequestType, ResponseType> {
 public:
   using GRPCResponder =
       grpc::ServerAsyncReaderWriter<ResponseType, RequestType>;
-  using RequestRpc = std::function<void(
-      ServiceType *, grpc::ServerContext *, GRPCResponder *,
-      grpc::CompletionQueue *, grpc::ServerCompletionQueue *, void *)>;
 
-  RequestRpc requestRpc;
+  using RequestRpcFun = std::function<void(
+      ServiceType *, grpc::ServerContext *, GRPCResponder *,
+      grpc::ServerCompletionQueue *, grpc::ServerCompletionQueue *, void *)>;
+
+  RequestRpcFun RequestRpc;
 };
 
 } // namespace handler
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_state_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 

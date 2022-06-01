@@ -16,7 +16,7 @@
 
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_callback_stream_server {
 namespace job {
 
 class BaseJob {
@@ -109,7 +109,7 @@ protected:
 };
 
 } // namespace job
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_callback_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 

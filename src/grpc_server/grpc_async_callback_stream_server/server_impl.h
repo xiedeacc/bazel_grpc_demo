@@ -17,22 +17,22 @@
 #include "src/common/proto/grpc_service.grpc.pb.h"
 #include "src/common/proto/grpc_service.pb.h"
 #include "src/common/util/helper.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/base_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/client_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/server_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/unary_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/job/base_job.h"
-#include "src/grpc_server/grpc_async_stream_server/job/bidirectional_streaming_job.h"
-#include "src/grpc_server/grpc_async_stream_server/job/client_streaming_job.h"
-#include "src/grpc_server/grpc_async_stream_server/job/server_streaming_job.h"
-#include "src/grpc_server/grpc_async_stream_server/job/unary_job.h"
-#include "src/grpc_server/grpc_async_stream_server/tag_info.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/base_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/bidirectional_streaming_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/client_streaming_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/server_streaming_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/unary_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/base_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/bidirectional_streaming_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/client_streaming_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/server_streaming_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/unary_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/tag_info.h"
 #include "gtest/gtest_prod.h"
 
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_callback_stream_server {
 
 class ServerImpl {
 public:
@@ -63,10 +63,11 @@ public:
 
 private:
   void createGetFeatureRpc() {
-    grpc_demo::grpc_server::grpc_async_stream_server::handler::UnaryHandlers<
-        grpc_demo::common::proto::RouteGuide::AsyncService,
-        grpc_demo::common::proto::Point, grpc_demo::common::proto::Feature>
-        rpcHandlers;
+    grpc_demo::grpc_server::grpc_async_callback_stream_server::handler::
+        UnaryHandlers<grpc_demo::common::proto::RouteGuide::AsyncService,
+                      grpc_demo::common::proto::Point,
+                      grpc_demo::common::proto::Feature>
+            rpcHandlers;
 
     rpcHandlers.createRpc = std::bind(&ServerImpl::createGetFeatureRpc, this);
 
@@ -76,34 +77,37 @@ private:
     rpcHandlers.requestRpc =
         &grpc_demo::common::proto::RouteGuide::AsyncService::RequestGetFeature;
 
-    new grpc_demo::grpc_server::grpc_async_stream_server::job::UnaryJob<
-        grpc_demo::common::proto::RouteGuide::AsyncService,
-        grpc_demo::common::proto::Point, grpc_demo::common::proto::Feature>(
-        &mRouteGuideService, mCQ.get(), rpcHandlers);
+    new grpc_demo::grpc_server::grpc_async_callback_stream_server::job::
+        UnaryJob<grpc_demo::common::proto::RouteGuide::AsyncService,
+                 grpc_demo::common::proto::Point,
+                 grpc_demo::common::proto::Feature>(&mRouteGuideService,
+                                                    mCQ.get(), rpcHandlers);
   }
 
   static void GetFeatureProcessor(
-      grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &rpc,
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob
+          &rpc,
       const google::protobuf::Message *message) {
     auto point = static_cast<const grpc_demo::common::proto::Point *>(message);
 
     grpc_demo::common::proto::Feature feature;
     feature.set_name(grpc_demo::common::util::GetFeatureName(
-        *point, grpc_demo::grpc_server::grpc_async_stream_server::ServerImpl::
-                    mFeatureList));
+        *point, grpc_demo::grpc_server::grpc_async_callback_stream_server::
+                    ServerImpl::mFeatureList));
     feature.mutable_location()->CopyFrom(*point);
 
     rpc.sendResponse(&feature);
   }
 
   static void GetFeatureDone(
-      grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &rpc,
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob
+          &rpc,
       bool rpcCancelled) {
     delete (&rpc);
   }
 
   void createListFeaturesRpc() {
-    grpc_demo::grpc_server::grpc_async_stream_server::handler::
+    grpc_demo::grpc_server::grpc_async_callback_stream_server::handler::
         ServerStreamingHandlers<
             grpc_demo::common::proto::RouteGuide::AsyncService,
             grpc_demo::common::proto::Rectangle,
@@ -118,7 +122,7 @@ private:
     rpcHandlers.requestRpc = &grpc_demo::common::proto::RouteGuide::
                                  AsyncService::RequestListFeatures;
 
-    new grpc_demo::grpc_server::grpc_async_stream_server::job::
+    new grpc_demo::grpc_server::grpc_async_callback_stream_server::job::
         ServerStreamingJob<grpc_demo::common::proto::RouteGuide::AsyncService,
                            grpc_demo::common::proto::Rectangle,
                            grpc_demo::common::proto::Feature>(
@@ -126,7 +130,8 @@ private:
   }
 
   static void ListFeaturesProcessor(
-      grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &rpc,
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob
+          &rpc,
       const google::protobuf::Message *message) {
     auto rectangle =
         static_cast<const grpc_demo::common::proto::Rectangle *>(message);
@@ -137,8 +142,8 @@ private:
     long right = (std::max)(lo.longitude(), hi.longitude());
     long top = (std::max)(lo.latitude(), hi.latitude());
     long bottom = (std::min)(lo.latitude(), hi.latitude());
-    for (auto f : grpc_demo::grpc_server::grpc_async_stream_server::ServerImpl::
-             mFeatureList) {
+    for (auto f : grpc_demo::grpc_server::grpc_async_callback_stream_server::
+             ServerImpl::mFeatureList) {
       if (f.location().longitude() >= left &&
           f.location().longitude() <= right &&
           f.location().latitude() >= bottom && f.location().latitude() <= top) {
@@ -149,13 +154,14 @@ private:
   }
 
   static void ListFeaturesDone(
-      grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &rpc,
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob
+          &rpc,
       bool rpcCancelled) {
     delete (&rpc);
   }
 
   void createRecordRouteRpc() {
-    grpc_demo::grpc_server::grpc_async_stream_server::handler::
+    grpc_demo::grpc_server::grpc_async_callback_stream_server::handler::
         ClientStreamingHandlers<
             grpc_demo::common::proto::RouteGuide::AsyncService,
             grpc_demo::common::proto::Point,
@@ -170,7 +176,7 @@ private:
     rpcHandlers.requestRpc =
         &grpc_demo::common::proto::RouteGuide::AsyncService::RequestRecordRoute;
 
-    new grpc_demo::grpc_server::grpc_async_stream_server::job::
+    new grpc_demo::grpc_server::grpc_async_callback_stream_server::job::
         ClientStreamingJob<grpc_demo::common::proto::RouteGuide::AsyncService,
                            grpc_demo::common::proto::Point,
                            grpc_demo::common::proto::RouteSummary>(
@@ -187,12 +193,13 @@ private:
   };
 
   static void RecordRouteProcessor(
-      grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &rpc,
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob
+          &rpc,
       const google::protobuf::Message *message) {
     auto point = static_cast<const grpc_demo::common::proto::Point *>(message);
 
-    RecordRouteState &state = grpc_demo::grpc_server::grpc_async_stream_server::
-        ServerImpl::mRecordRouteMap[&rpc];
+    RecordRouteState &state = grpc_demo::grpc_server::
+        grpc_async_callback_stream_server::ServerImpl::mRecordRouteMap[&rpc];
 
     if (point) {
       if (state.pointCount == 0)
@@ -200,8 +207,9 @@ private:
 
       state.pointCount++;
       if (!grpc_demo::common::util::GetFeatureName(
-               *point, grpc_demo::grpc_server::grpc_async_stream_server::
-                           ServerImpl::mFeatureList)
+               *point,
+               grpc_demo::grpc_server::grpc_async_callback_stream_server::
+                   ServerImpl::mFeatureList)
                .empty()) {
         state.featureCount++;
       }
@@ -224,19 +232,20 @@ private:
       summary.set_elapsed_time(secs.count());
       rpc.sendResponse(&summary);
 
-      grpc_demo::grpc_server::grpc_async_stream_server::ServerImpl::
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::ServerImpl::
           mRecordRouteMap.erase(&rpc);
     }
   }
 
   static void RecordRouteDone(
-      grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &rpc,
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob
+          &rpc,
       bool rpcCancelled) {
     delete (&rpc);
   }
 
   void createRouteChatRpc() {
-    grpc_demo::grpc_server::grpc_async_stream_server::handler::
+    grpc_demo::grpc_server::grpc_async_callback_stream_server::handler::
         BidirectionalStreamingHandlers<
             grpc_demo::common::proto::RouteGuide::AsyncService,
             grpc_demo::common::proto::RouteNote,
@@ -251,7 +260,7 @@ private:
     rpcHandlers.requestRpc =
         &grpc_demo::common::proto::RouteGuide::AsyncService::RequestRouteChat;
 
-    new grpc_demo::grpc_server::grpc_async_stream_server::job::
+    new grpc_demo::grpc_server::grpc_async_callback_stream_server::job::
         BidirectionalStreamingJob<
             grpc_demo::common::proto::RouteGuide::AsyncService,
             grpc_demo::common::proto::RouteNote,
@@ -260,7 +269,8 @@ private:
   }
 
   static void RouteChatProcessor(
-      grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &rpc,
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob
+          &rpc,
       const google::protobuf::Message *message) {
     auto note =
         static_cast<const grpc_demo::common::proto::RouteNote *>(message);
@@ -274,7 +284,8 @@ private:
   }
 
   static void RouteChatDone(
-      grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &rpc,
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob
+          &rpc,
       bool rpcCancelled) {
     delete (&rpc);
     LOG(INFO) << "cancelled: " << (rpcCancelled ? "true" : "false");
@@ -302,7 +313,7 @@ private:
   std::unique_ptr<grpc::ServerCompletionQueue> mCQ;
   grpc_demo::common::proto::RouteGuide::AsyncService mRouteGuideService;
   static std::unordered_map<
-      grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob *,
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob *,
       RecordRouteState>
       mRecordRouteMap;
 
@@ -310,7 +321,7 @@ private:
   std::unique_ptr<grpc::Server> mServer;
 };
 
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_callback_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 

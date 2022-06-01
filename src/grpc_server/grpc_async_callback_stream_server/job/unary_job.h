@@ -9,23 +9,23 @@
 
 #include <grpcpp/completion_queue.h>
 
-#include "src/grpc_server/grpc_async_stream_server/handler/base_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/client_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/server_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/unary_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/job/base_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/base_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/bidirectional_streaming_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/client_streaming_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/server_streaming_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/handler/unary_handler.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/base_job.h"
 
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_callback_stream_server {
 namespace job {
 
 template <typename ServiceType, typename RequestType, typename ResponseType>
 class UnaryJob : public BaseJob {
   using ThisJobTypeHandlers =
-      grpc_demo::grpc_server::grpc_async_stream_server::handler::UnaryHandlers<
-          ServiceType, RequestType, ResponseType>;
+      grpc_demo::grpc_server::grpc_async_callback_stream_server::handler::
+          UnaryHandlers<ServiceType, RequestType, ResponseType>;
 
 public:
   UnaryJob(ServiceType *service, grpc::ServerCompletionQueue *cq,
@@ -116,7 +116,7 @@ private:
 };
 
 } // namespace job
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_callback_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 

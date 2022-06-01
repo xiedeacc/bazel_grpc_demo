@@ -3,265 +3,156 @@
  * All rights reserved.
  *******************************************************************************/
 
-#ifndef JOB_BI_STREAMING_JOB_H
-#define JOB_BI_STREAMING_JOB_H
+#ifndef grpc_server_RPC_BI_STREAMING_RPC_H
+#define grpc_server_RPC_BI_STREAMING_RPC_H
+#include <grpcpp/completion_queue.h>
 #pragma once
 
-#include <cstdlib>
-
-#include <grpcpp/completion_queue.h>
-
-#include "src/grpc_server/grpc_async_stream_server/handler/base_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/client_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/server_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/unary_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/job/base_job.h"
-
+#include "src/grpc_server/grpc_async_state_stream_server/handler/base_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/bidirectional_streaming_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/client_streaming_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/server_streaming_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/unary_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/job/base_job.h"
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_state_stream_server {
 namespace job {
 
 template <typename ServiceType, typename RequestType, typename ResponseType>
 class BidirectionalStreamingJob : public BaseJob {
-  using ThisJobTypeHandlers = grpc_demo::grpc_server::grpc_async_stream_server::
-      handler::BidirectionalStreamingHandlers<ServiceType, RequestType,
-                                              ResponseType>;
+  using ThisRpcTypeHandler =
+      grpc_demo::grpc_server::grpc_async_state_stream_server::handler::
+          BidirectionalStreamingHandler<ServiceType, RequestType, ResponseType>;
 
 public:
-  BidirectionalStreamingJob(ServiceType *service,
-                            grpc::ServerCompletionQueue *cq,
-                            ThisJobTypeHandlers jobHandlers)
-      : mService(service), mCQ(cq), mResponder(&mServerContext),
-        mHandlers(jobHandlers), mServerStreamingDone(false),
-        mClientStreamingDone(false) {
-    ++gBidirectionalStreamingJobCounter;
-    // create TagProcessors that we'll use to interact with gRPC CompletionQueue
-    mOnInit = std::bind(&BidirectionalStreamingJob::onInit, this,
-                        std::placeholders::_1);
-    mOnRead = std::bind(&BidirectionalStreamingJob::onRead, this,
-                        std::placeholders::_1);
-    mOnWrite = std::bind(&BidirectionalStreamingJob::onWrite, this,
-                         std::placeholders::_1);
-    mOnFinish = std::bind(&BidirectionalStreamingJob::onFinish, this,
-                          std::placeholders::_1);
-    mOnDone = std::bind(&BaseJob::onDone, this, std::placeholders::_1);
+  BidirectionalStreamingJob(ServiceType *async_service,
+                            grpc::ServerCompletionQueue *request_queue,
+                            grpc::ServerCompletionQueue *response_queue,
+                            ThisRpcTypeHandler handler)
+      : BaseJob(request_queue, response_queue), async_service_(async_service),
+        responder_(&server_context_), handler_(handler),
+        server_streaming_done_(false), client_streaming_done_(false) {
+    ++bi_streaming_rpc_counter;
+    on_done_ = std::bind(&BaseJob::OnDone, this, std::placeholders::_1);
+    Proceed(true);
+  }
 
-    // set up the completion queue to inform us when gRPC is done with this rpc.
-    mServerContext.AsyncNotifyWhenDone(&mOnDone);
+protected:
+  // CREATE
+  void RequestRpc(bool ok) {
+    server_context_.AsyncNotifyWhenDone(&on_done_);
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
 
-    // finally, issue the async request needed by gRPC to start handling this
-    // rpc.
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
-    LOG(INFO) << "created!";
-    mHandlers.requestRpc(mService, &mServerContext, &mResponder, mCQ, mCQ,
-                         &mOnInit);
-    LOG(INFO) << "requestRpc";
+    handler_.RequestRpc(async_service_, &server_context_, &responder_,
+                        request_queue_, response_queue_, this);
+    status_ = READ;
   }
 
 private:
-  bool sendResponseImpl(const google::protobuf::Message *responseMsg) override {
-    auto response = static_cast<const ResponseType *>(responseMsg);
+  // READ
+  void ReadRequest(bool ok) {
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
+      if (ok) {
+        status_ = PROCESS;
+        AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
+        responder_.Read(&request_, this);
+      }
+    }
+  }
 
-    if (response == nullptr && !mClientStreamingDone) {
-      // It does not make sense for server to finish the rpc before client has
-      // streamed all the requests. Supporting this behavior could lead to
-      // writing error-prone code so it is specifically disallowed.
-      GPR_ASSERT(false); // If you want to cancel, use BaseJob::finishWithError
-                         // with grpc::Cancelled status.
+  // PROCESS
+  void HandleRequest(bool ok) {
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
+      if (ok) {
+        handler_.ProcessIncomingRequest(&server_context_, this, &request_,
+                                        &response_);
+        AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
+        responder_.Read(&request_, this);
+      } else {
+        client_streaming_done_ = true;
+        handler_.CreateJob(async_service_, request_queue_, response_queue_);
+        handler_.ProcessIncomingRequest(&server_context_, this, nullptr,
+                                        &response_);
+        SendResponse(&response_);
+      }
+    }
+  }
+
+  bool SendResponse(const google::protobuf::Message *response_msg) {
+    auto response = static_cast<const ResponseType *>(response_msg);
+    if (response == nullptr && !client_streaming_done_) {
+      // FinishWithError();
       return false;
     }
 
     if (response != nullptr) {
-      mResponseQueue.push_back(
-          *response); // We need to make a copy of the response because we need
-                      // to maintain it until we get a completion notification.
-
-      if (!asyncWriteInProgress()) {
-        doSendResponse();
+      if (!AsyncWriteInProgress()) {
+        status_ = WRITE;
+        DoSendResponse();
       }
     } else {
-      mServerStreamingDone = true;
-
-      if (!asyncWriteInProgress()) // Kick the async op if our state machine is
-                                   // not going to be kicked from the completion
-                                   // queue
-      {
-        doFinish();
+      server_streaming_done_ = true;
+      if (!AsyncWriteInProgress()) {
+        status_ = FINISH;
+        DoFinish();
       }
     }
-
     return true;
   }
 
-  void doSendResponse() {
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_WRITE);
-    LOG(INFO) << "write";
-    mResponder.Write(mResponseQueue.front(), &mOnWrite);
+  void DoSendResponse() {
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_WRITE);
+    responder_.Write(response_, this);
   }
 
-  void doFinish() {
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
-    LOG(INFO) << "finish";
-    mResponder.Finish(grpc::Status::OK, &mOnFinish);
+  void WriteResponseQueue(bool ok) {
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_WRITE)) {
+      if (ok) {
+        status_ = WRITE;
+        DoSendResponse();
+      } else if (server_streaming_done_) {
+        status_ = FINISH;
+        DoFinish();
+      }
+    }
   }
 
-  bool finishWithErrorImpl(const grpc::Status &error) override {
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
-    mResponder.Finish(error, &mOnFinish);
+  void DoFinish() {
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+    responder_.Finish(grpc::Status::OK, this);
+  }
 
+  bool FinishWithErrorImpl(const grpc::Status &error) override {
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+    responder_.Finish(error, this);
     return true;
   }
 
-  void onInit(bool ok) {
-    mHandlers.createRpc();
-    if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
-      if (ok) {
-        asyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
-        LOG(INFO) << "read";
-        mResponder.Read(&mRequest, &mOnRead);
-      }
-    }
-  }
-
-  void onRead(bool ok) {
-    if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
-      if (ok) {
-        // inform application that a new request has come in
-
-        // std::this_thread::sleep_for(std::chrono::milliseconds{dist(generator)});
-        LOG(INFO) << "processIncomingRequest";
-        mHandlers.processIncomingRequest(*this, &mRequest);
-
-        // queue up another read operation for this rpc
-        asyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
-        LOG(INFO) << "read";
-        mResponder.Read(&mRequest, &mOnRead);
-      } else {
-        mClientStreamingDone = true;
-        LOG(INFO) << "processIncomingRequest"
-                  << (mClientStreamingDone ? " true" : " false");
-        mHandlers.processIncomingRequest(*this, nullptr);
-      }
-    }
-  }
-
-  void onWrite(bool ok) {
-    if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_WRITE)) {
-      // Get rid of the message that just finished.
-      mResponseQueue.pop_front();
-
-      if (ok) {
-        if (!mResponseQueue.empty()) // If we have more messages waiting to be
-                                     // sent, send them.
-        {
-          doSendResponse();
-        } else if (mServerStreamingDone) // Previous write completed and we did
-                                         // not have any pending write. If the
-                                         // application indicated a done
-                                         // operation, finish the rpc
-                                         // processing.
-        {
-          doFinish();
-        }
-      }
-    }
-  }
-
-  void onFinish(bool ok) { asyncOpFinished(BaseJob::ASYNC_OP_TYPE_FINISH); }
-
-  void done() override {
-    mHandlers.done(*this, mServerContext.IsCancelled());
-
-    --gBidirectionalStreamingJobCounter;
+  void Done() override { // TODO trigger condition?
+    handler_.Done(this, server_context_.IsCancelled());
+    --bi_streaming_rpc_counter;
     LOG(INFO) << "Pending Bidirectional Streaming Rpcs Count = "
-              << gBidirectionalStreamingJobCounter;
+              << bi_streaming_rpc_counter;
   }
-
-  /* another implement
-  void Proceed(bool ok) {
-      std::unique_lock<std::mutex> _wlock(this->m_mutex);
-    switch (status_) {
-    case BidiStatus::READ:
-
-        //Meaning client said it wants to end the stream either by a 'writedone'
-  or 'finish' call. if (!ok) { std::cout << "thread:" <<
-  std::this_thread::get_id() << " tag:" << this << " CQ returned false." <<
-  std::endl; Status _st(StatusCode::OUT_OF_RANGE,"test error msg");
-            rw_.Finish(_st,(void*)this);
-            status_ = BidiStatus::DONE;
-            std::cout << "thread:" << std::this_thread::get_id() << " tag:" <<
-  this << " after call Finish(), cancelled:" << this->ctx_.IsCancelled() <<
-  std::endl; break;
-        }
-
-        std::cout << "thread:" << std::this_thread::get_id() << " tag:" << this
-  << " Read a new message:" << request_.name() << std::endl;
-
-        reply_.set_message("arthur");
-        rw_.Write(reply_, (void*)this);
-
-        status_ = BidiStatus::WRITE;
-        break;
-
-    case BidiStatus::WRITE:
-        std::cout << "thread:" << std::this_thread::get_id() << " tag:" << this
-  << " Written a message:" << reply_.message() << std::endl; rw_.Read(&request_,
-  (void*)this); status_ = BidiStatus::READ; break;
-
-    case BidiStatus::CONNECT:
-        std::cout << "thread:" << std::this_thread::get_id() << " tag:" << this
-  << " connected:" << std::endl; new CallDataBidi(service_, cq_);
-        rw_.Read(&request_, (void*)this);
-        status_ = BidiStatus::READ;
-        break;
-
-    case BidiStatus::DONE:
-        std::cout << "thread:" << std::this_thread::get_id() << " tag:" << this
-                << " Server done, cancelled:" << this->ctx_.IsCancelled() <<
-  std::endl; status_ = BidiStatus::FINISH; break;
-
-    case BidiStatus::FINISH:
-        std::cout << "thread:" << std::this_thread::get_id() <<  "tag:" << this
-  << " Server finish, cancelled:" << this->ctx_.IsCancelled() << std::endl;
-        _wlock.unlock();
-        delete this;
-        break;
-
-    default:
-        std::cerr << "Unexpected tag " << int(status_) << std::endl;
-        assert(false);
-    }
-  }
-*/
 
 public:
-  static std::atomic<int32_t> gBidirectionalStreamingJobCounter;
+  static std::atomic<int32_t> bi_streaming_rpc_counter;
 
 private:
-  ServiceType *mService;
-  grpc::ServerCompletionQueue *mCQ;
-  typename ThisJobTypeHandlers::GRPCResponder mResponder;
-
-  RequestType mRequest;
-
-  ThisJobTypeHandlers mHandlers;
-
-  std::function<void(bool)> mOnInit;
-  std::function<void(bool)> mOnRead;
-  std::function<void(bool)> mOnWrite;
-  std::function<void(bool)> mOnFinish;
-  std::function<void(bool)> mOnDone;
-
-  std::list<ResponseType> mResponseQueue;
-  bool mServerStreamingDone;
-  bool mClientStreamingDone;
+  std::function<void(bool)> on_done_;
+  ServiceType *async_service_;
+  typename ThisRpcTypeHandler::GRPCResponder responder_;
+  ThisRpcTypeHandler handler_;
+  RequestType request_;
+  ResponseType response_;
+  bool server_streaming_done_;
+  bool client_streaming_done_;
 };
 
 } // namespace job
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_state_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 
-#endif // JOB_BI_STREAMING_JOB_H
+#endif // grpc_server_RPC_BI_STREAMING_RPC_H

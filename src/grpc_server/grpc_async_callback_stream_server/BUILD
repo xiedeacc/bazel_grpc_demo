@@ -1,8 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
-    name = "grpc_async_stream_server",
-    srcs = ["grpc_async_stream_server.cc"],
+    name = "grpc_async_callback_stream_server",
+    srcs = ["grpc_async_callback_stream_server.cc"],
     data = [
         "//data:exported_data",
     ],
@@ -35,8 +35,8 @@ cc_library(
         ":tag_info",
         "//src/common/proto:grpc_service",
         "//src/common/util:helper",
-        "//src/grpc_server/grpc_async_stream_server/handler:grpc_handler",
-        "//src/grpc_server/grpc_async_stream_server/job:grpc_job",
+        "//src/grpc_server/grpc_async_callback_stream_server/handler:grpc_handler",
+        "//src/grpc_server/grpc_async_callback_stream_server/job:grpc_job",
         "@boost//:algorithm",
         "@boost//:thread",
         "@com_github_gflags_gflags//:gflags",

@@ -1,165 +1,141 @@
+
 /*******************************************************************************
  * Copyright (c) 2022 Copyright 2022- xiedeacc.com.
  * All rights reserved.
  *******************************************************************************/
 
-#ifndef JOB_SERVER_STREAMING_JOB_H
-#define JOB_SERVER_STREAMING_JOB_H
+#ifndef GRPC_async_service_RPC_SERVER_STREAMING_RPC_H
+#define GRPC_async_service_RPC_SERVER_STREAMING_RPC_H
+#include <grpcpp/completion_queue.h>
 #pragma once
 
-#include <grpcpp/completion_queue.h>
-
-#include "src/grpc_server/grpc_async_stream_server/handler/base_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/client_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/server_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/unary_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/job/base_job.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/base_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/bidirectional_streaming_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/client_streaming_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/server_streaming_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/unary_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/job/base_job.h"
 
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_state_stream_server {
 namespace job {
 
 template <typename ServiceType, typename RequestType, typename ResponseType>
 class ServerStreamingJob : public BaseJob {
-  using ThisJobTypeHandlers = grpc_demo::grpc_server::grpc_async_stream_server::
-      handler::ServerStreamingHandlers<ServiceType, RequestType, ResponseType>;
+  using ThisRpcTypeHandler =
+      grpc_demo::grpc_server::grpc_async_state_stream_server::handler::
+          ServerStreamingHandler<ServiceType, RequestType, ResponseType>;
 
 public:
-  ServerStreamingJob(ServiceType *service, grpc::ServerCompletionQueue *cq,
-                     ThisJobTypeHandlers jobHandlers)
-      : mService(service), mCQ(cq), mResponder(&mServerContext),
-        mHandlers(jobHandlers), mServerStreamingDone(false) {
-    ++gServerStreamingJobCounter;
+  ServerStreamingJob(ServiceType *async_service,
+                     grpc::ServerCompletionQueue *request_queue,
+                     grpc::ServerCompletionQueue *response_queue,
+                     ThisRpcTypeHandler handler)
+      : BaseJob(request_queue, response_queue), async_service_(async_service),
+        responder_(&server_context_), handler_(handler),
+        server_streaming_done_(false) {
+    ++server_streaming_rpc_counter;
+    on_done_ = std::bind(&BaseJob::OnDone, this, std::placeholders::_1);
+    Proceed(true);
+  }
 
-    // create TagProcessors that we'll use to interact with gRPC CompletionQueue
-    mOnRead =
-        std::bind(&ServerStreamingJob::onRead, this, std::placeholders::_1);
-    mOnWrite =
-        std::bind(&ServerStreamingJob::onWrite, this, std::placeholders::_1);
-    mOnFinish =
-        std::bind(&ServerStreamingJob::onFinish, this, std::placeholders::_1);
-    mOnDone = std::bind(&BaseJob::onDone, this, std::placeholders::_1);
+protected:
+  // CREATE
+  void RequestRpc(bool ok) {
+    server_context_.AsyncNotifyWhenDone(&on_done_);
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
 
-    // set up the completion queue to inform us when gRPC is done with this rpc.
-    mServerContext.AsyncNotifyWhenDone(&mOnDone);
+    handler_.RequestRpc(async_service_, &server_context_, &request_,
+                        &responder_, request_queue_, response_queue_, this);
 
-    // finally, issue the async request needed by gRPC to start handling this
-    // rpc.
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
-    mHandlers.requestRpc(mService, &mServerContext, &mRequest, &mResponder, mCQ,
-                         mCQ, &mOnRead);
+    status_ = PROCESS;
   }
 
 private:
-  // gRPC can only do one async write at a time but that is very inconvenient
-  // from the application point of view. So we buffer the response below in a
-  // queue if gRPC lib is not ready for it. The application can send a null
-  // response in order to indicate the completion of server side streaming.
-  bool sendResponseImpl(const google::protobuf::Message *responseMsg) override {
+  // PROCESS
+  void HandleRequest(bool ok) {
+    handler_.CreateJob(async_service_, request_queue_, response_queue_);
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
+      if (ok) {
+        handler_.ProcessIncomingRequest(&server_context_, this, &request_,
+                                        &response_);
+        SendResponse(&response_);
+      }
+    }
+  }
+
+  bool SendResponse(const google::protobuf::Message *responseMsg) {
     auto response = static_cast<const ResponseType *>(responseMsg);
-
     if (response != nullptr) {
-      mResponseQueue.push_back(*response);
-
-      if (!asyncWriteInProgress()) {
-        doSendResponse();
+      if (!AsyncWriteInProgress()) {
+        status_ = WRITE;
+        DoSendResponse();
       }
     } else {
-      mServerStreamingDone = true;
-
-      if (!asyncWriteInProgress()) {
-        doFinish();
+      server_streaming_done_ = true;
+      if (!AsyncWriteInProgress()) {
+        status_ = FINISH;
+        DoFinish();
       }
     }
-
     return true;
   }
 
-  bool finishWithErrorImpl(const grpc::Status &error) override {
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
-    mResponder.Finish(error, &mOnFinish);
+  void DoSendResponse() {
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_WRITE);
+    responder_.Write(response_, this);
+  }
 
+  void WriteResponseQueue(bool ok) {
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_WRITE)) {
+      if (ok) {
+        status_ = WRITE;
+        DoSendResponse();
+      } else if (server_streaming_done_) {
+        status_ = FINISH;
+        DoFinish();
+      }
+    }
+  }
+
+  // READ
+  void ReadRequest(bool ok) {}
+
+  void DoFinish() {
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+    responder_.Finish(grpc::Status::OK, this);
+  }
+
+  bool FinishWithErrorImpl(const grpc::Status &error) override {
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+    responder_.Finish(error, this);
     return true;
   }
 
-  void doSendResponse() {
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_WRITE);
-    mResponder.Write(mResponseQueue.front(), &mOnWrite);
-  }
-
-  void doFinish() {
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
-    mResponder.Finish(grpc::Status::OK, &mOnFinish);
-  }
-
-  void onRead(bool ok) {
-    mHandlers.createRpc();
-
-    if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
-      if (ok) {
-        mHandlers.processIncomingRequest(*this, &mRequest);
-      }
-    }
-  }
-
-  void onWrite(bool ok) {
-    if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_WRITE)) {
-      // Get rid of the message that just finished.
-      mResponseQueue.pop_front();
-
-      if (ok) {
-        if (!mResponseQueue.empty()) // If we have more messages waiting to be
-                                     // sent, send them.
-        {
-          doSendResponse();
-        } else if (mServerStreamingDone) // Previous write completed and we did
-                                         // not have any pending write. If the
-                                         // application has finished streaming
-                                         // responses, finish the rpc
-                                         // processing.
-        {
-          doFinish();
-        }
-      }
-    }
-  }
-
-  void onFinish(bool ok) { asyncOpFinished(BaseJob::ASYNC_OP_TYPE_FINISH); }
-
-  void done() override {
-    mHandlers.done(*this, mServerContext.IsCancelled());
-
-    --gServerStreamingJobCounter;
+  void Done() override {
+    handler_.Done(this, server_context_.IsCancelled());
+    --server_streaming_rpc_counter;
     LOG(INFO) << "Pending Server Streaming Rpcs Count = "
-              << gServerStreamingJobCounter;
+              << server_streaming_rpc_counter;
   }
 
 public:
-  static std::atomic<int32_t> gServerStreamingJobCounter;
+  static std::atomic<int32_t> server_streaming_rpc_counter;
 
 private:
-  ServiceType *mService;
-  grpc::ServerCompletionQueue *mCQ;
-  typename ThisJobTypeHandlers::GRPCResponder mResponder;
-
-  RequestType mRequest;
-
-  ThisJobTypeHandlers mHandlers;
-
-  std::function<void(bool)> mOnRead;
-  std::function<void(bool)> mOnWrite;
-  std::function<void(bool)> mOnFinish;
-  std::function<void(bool)> mOnDone;
-
-  std::list<ResponseType> mResponseQueue;
-  bool mServerStreamingDone;
+  std::function<void(bool)> on_done_;
+  ServiceType *async_service_;
+  typename ThisRpcTypeHandler::GRPCResponder responder_;
+  ThisRpcTypeHandler handler_;
+  RequestType request_;
+  ResponseType response_;
+  bool server_streaming_done_;
 };
 
 } // namespace job
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_state_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 
-#endif // JOB_SERVER_STREAMING_JOB_H
+#endif // GRPC_async_service_RPC_SERVER_STREAMING_RPC_H

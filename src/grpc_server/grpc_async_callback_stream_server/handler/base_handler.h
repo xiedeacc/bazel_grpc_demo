@@ -16,21 +16,22 @@
 
 #include "google/protobuf/service.h"
 #include "grpc++/grpc++.h"
-#include "src/grpc_server/grpc_async_stream_server/job/base_job.h"
+#include "src/grpc_server/grpc_async_callback_stream_server/job/base_job.h"
 
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_callback_stream_server {
 namespace handler {
 
 using CreateRpc = std::function<void()>;
 
 using ProcessIncomingRequest = std::function<void(
-    grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &,
+    grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob &,
     const google::protobuf::Message *)>;
 
 using Done = std::function<void(
-    grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &, bool)>;
+    grpc_demo::grpc_server::grpc_async_callback_stream_server::job::BaseJob &,
+    bool)>;
 
 template <typename ServiceType, typename RequestType, typename ResponseType>
 struct BaseHandlers {
@@ -43,7 +44,7 @@ public:
 };
 
 } // namespace handler
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_callback_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 

@@ -3,121 +3,112 @@
  * All rights reserved.
  *******************************************************************************/
 
-#ifndef JOB_UNARY_JOB_H
-#define JOB_UNARY_JOB_H
+#ifndef GRPC_async_service_RPC_UNARY_RPC_H
+#define GRPC_async_service_RPC_UNARY_RPC_H
+#include <grpcpp/completion_queue.h>
 #pragma once
 
-#include <grpcpp/completion_queue.h>
-
-#include "src/grpc_server/grpc_async_stream_server/handler/base_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/client_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/server_streaming_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/handler/unary_handler.h"
-#include "src/grpc_server/grpc_async_stream_server/job/base_job.h"
-
+#include "src/grpc_server/grpc_async_state_stream_server/handler/base_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/bidirectional_streaming_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/client_streaming_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/server_streaming_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/handler/unary_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/job/base_job.h"
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_state_stream_server {
 namespace job {
 
 template <typename ServiceType, typename RequestType, typename ResponseType>
 class UnaryJob : public BaseJob {
-  using ThisJobTypeHandlers =
-      grpc_demo::grpc_server::grpc_async_stream_server::handler::UnaryHandlers<
-          ServiceType, RequestType, ResponseType>;
+  using ThisRpcTypeHandler =
+      grpc_demo::grpc_server::grpc_async_state_stream_server::handler::
+          UnaryHandler<ServiceType, RequestType, ResponseType>;
 
 public:
-  UnaryJob(ServiceType *service, grpc::ServerCompletionQueue *cq,
-           ThisJobTypeHandlers jobHandlers)
-      : mService(service), mCQ(cq), mResponder(&mServerContext),
-        mHandlers(jobHandlers) {
-    ++gUnaryJobCounter;
+  UnaryJob(ServiceType *async_service,
+           grpc::ServerCompletionQueue *request_queue,
+           grpc::ServerCompletionQueue *response_queue,
+           ThisRpcTypeHandler handler)
+      : BaseJob(request_queue, response_queue), async_service_(async_service),
+        responder_(&server_context_), handler_(handler) {
+    ++unary_rpc_counter;
+    on_done_ = std::bind(&BaseJob::OnDone, this, std::placeholders::_1);
+    Proceed(true);
+  }
 
-    // create TagProcessors that we'll use to interact with gRPC CompletionQueue
-    mOnRead = std::bind(&UnaryJob::onRead, this, std::placeholders::_1);
-    mOnFinish = std::bind(&UnaryJob::onFinish, this, std::placeholders::_1);
-    mOnDone = std::bind(&BaseJob::onDone, this, std::placeholders::_1);
+protected:
+  // CREATE
+  void RequestRpc(bool ok) {
+    server_context_.AsyncNotifyWhenDone(&on_done_);
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
 
-    // set up the completion queue to inform us when gRPC is done with this rpc.
-    mServerContext.AsyncNotifyWhenDone(&mOnDone);
-
-    // finally, issue the async request needed by gRPC to start handling this
-    // rpc.
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
-    mHandlers.requestRpc(mService, &mServerContext, &mRequest, &mResponder, mCQ,
-                         mCQ, &mOnRead);
+    handler_.RequestRpc(async_service_, &server_context_, &request_,
+                        &responder_, request_queue_, response_queue_, this);
+    status_ = PROCESS;
   }
 
 private:
-  bool sendResponseImpl(const google::protobuf::Message *responseMsg) override {
-    auto response = static_cast<const ResponseType *>(responseMsg);
-    // If no response is available, use BaseJob::finishWithError.
-    GPR_ASSERT(response);
-
-    if (response == nullptr)
-      return false;
-
-    mResponse = *response;
-
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
-    mResponder.Finish(mResponse, grpc::Status::OK, &mOnFinish);
-
-    return true;
-  }
-
-  bool finishWithErrorImpl(const grpc::Status &error) override {
-    asyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
-    mResponder.FinishWithError(error, &mOnFinish);
-
-    return true;
-  }
-
-  void onRead(bool ok) {
-    // A request has come on the service which can now be handled. Create a new
-    // rpc of this type to allow the server to handle next request.
-    mHandlers.createRpc();
-
-    if (asyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
+  // PROCESS
+  void HandleRequest(bool ok) {
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
       if (ok) {
-        // We have a request that can be responded to now. So process it.
-        mHandlers.processIncomingRequest(*this, &mRequest);
+        handler_.CreateJob(async_service_, request_queue_, response_queue_);
+        handler_.ProcessIncomingRequest(&server_context_, this, &request_,
+                                        &response_);
+        SendResponse(&response_);
+        status_ = FINISH;
       } else {
-        GPR_ASSERT(ok);
+        // FinishWithError(ok);
       }
     }
   }
+  // READ
+  void ReadRequest(bool ok) {}
 
-  void onFinish(bool ok) { asyncOpFinished(BaseJob::ASYNC_OP_TYPE_FINISH); }
+  void WriteResponseQueue(bool ok) {}
 
-  void done() override {
-    mHandlers.done(*this, mServerContext.IsCancelled());
+  bool SendResponse(const google::protobuf::Message *responseMsg) {
+    auto response = static_cast<const ResponseType *>(responseMsg);
+    if (response == nullptr) {
+      // FinishWithError(ok);
+      return false;
+    }
 
-    --gUnaryJobCounter;
-    LOG(INFO) << "Pending Unary Rpcs Count = " << gUnaryJobCounter;
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+    responder_.Finish(response_, grpc::Status::OK, this);
+    status_ = FINISH;
+    return true;
+  }
+
+  bool FinishWithErrorImpl(const grpc::Status &error) override {
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+    responder_.FinishWithError(error, this);
+    status_ = FINISH;
+    return true;
+  }
+
+  void Done() override {
+    handler_.Done(this, server_context_.IsCancelled());
+    --unary_rpc_counter;
+    LOG(INFO) << "Pending Unary Rpcs Count = " << unary_rpc_counter;
   }
 
 public:
-  static std::atomic<int32_t> gUnaryJobCounter;
+  static std::atomic<int32_t> unary_rpc_counter;
 
 private:
-  ServiceType *mService;
-  grpc::ServerCompletionQueue *mCQ;
-  typename ThisJobTypeHandlers::GRPCResponder mResponder;
-
-  RequestType mRequest;
-  ResponseType mResponse;
-
-  ThisJobTypeHandlers mHandlers;
-
-  std::function<void(bool)> mOnRead;
-  std::function<void(bool)> mOnFinish;
-  std::function<void(bool)> mOnDone;
+  std::function<void(bool)> on_done_;
+  ServiceType *async_service_;
+  typename ThisRpcTypeHandler::GRPCResponder responder_;
+  ThisRpcTypeHandler handler_;
+  RequestType request_;
+  ResponseType response_;
 };
 
 } // namespace job
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_state_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 
-#endif // JOB_UNARY_JOB_H
+#endif // GRPC_async_service_RPC_UNARY_RPC_H

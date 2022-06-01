@@ -5,6 +5,7 @@
 
 #ifndef HANDLER_BASE_HANDLER_H
 #define HANDLER_BASE_HANDLER_H
+#include "src/common/proto/grpc_service.grpc.pb.h"
 #pragma once
 
 #include <grpcpp/completion_queue.h>
@@ -16,34 +17,37 @@
 
 #include "google/protobuf/service.h"
 #include "grpc++/grpc++.h"
-#include "src/grpc_server/grpc_async_stream_server/job/base_job.h"
+#include "src/grpc_server/grpc_async_state_stream_server/job/base_job.h"
 
 namespace grpc_demo {
 namespace grpc_server {
-namespace grpc_async_stream_server {
+namespace grpc_async_state_stream_server {
 namespace handler {
 
-using CreateRpc = std::function<void()>;
-
-using ProcessIncomingRequest = std::function<void(
-    grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &,
-    const google::protobuf::Message *)>;
-
-using Done = std::function<void(
-    grpc_demo::grpc_server::grpc_async_stream_server::job::BaseJob &, bool)>;
-
 template <typename ServiceType, typename RequestType, typename ResponseType>
-struct BaseHandlers {
+struct BaseHandler {
 public:
-  CreateRpc createRpc;
+  using CreateJobFun =
+      void (*)(grpc_demo::common::proto::RouteGuide::AsyncService *,
+               grpc::ServerCompletionQueue *, grpc::ServerCompletionQueue *);
 
-  ProcessIncomingRequest processIncomingRequest;
+  using ProcessIncomingRequestFun =
+      grpc::Status (*)(grpc::ServerContext *server_context, const void *,
+                       const RequestType *, ResponseType *);
 
-  Done done;
+  using DoneFun = void (*)(
+      grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *,
+      bool);
+
+  CreateJobFun CreateJob;
+
+  ProcessIncomingRequestFun ProcessIncomingRequest;
+
+  DoneFun Done;
 };
 
 } // namespace handler
-} // namespace grpc_async_stream_server
+} // namespace grpc_async_state_stream_server
 } // namespace grpc_server
 } // namespace grpc_demo
 

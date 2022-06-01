@@ -101,7 +101,7 @@ git_repository(
 
 git_repository(
     name = "bazel_build_repo",
-    commit = "5be2997da3e0ff5e4b635e80d428b6c206e9d7dc",
+    commit = "9689515ea4bb0e67ae1d484e9ebc1528680e0e2e",
     remote = "https://github.com/xiedeacc/bazel_build_repo.git",
 )
 

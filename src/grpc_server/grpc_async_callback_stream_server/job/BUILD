@@ -12,7 +12,7 @@ cc_library(
     deps = [
         ":grpc_base_job",
         "//src/common/proto:grpc_service",
-        "//src/grpc_server/grpc_async_stream_server/handler:grpc_handler",
+        "//src/grpc_server/grpc_async_callback_stream_server/handler:grpc_handler",
         "@com_github_gflags_gflags//:gflags",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc++_reflection",
