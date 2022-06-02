@@ -170,7 +170,10 @@ private:
     }
   }
 
-  void onFinish(bool ok) { asyncOpFinished(BaseJob::ASYNC_OP_TYPE_FINISH); }
+  void onFinish(bool ok) {
+    LOG(INFO) << "onFinish";
+    asyncOpFinished(BaseJob::ASYNC_OP_TYPE_FINISH);
+  }
 
   void done() override {
     mHandlers.done(*this, mServerContext.IsCancelled());

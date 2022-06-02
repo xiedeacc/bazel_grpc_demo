@@ -26,12 +26,12 @@ public:
     ASYNC_OP_TYPE_FINISH
   };
 
-  enum ProcessStatus { CREATE, READ, PROCESS, WRITE, FINISH };
+  enum ProcessStatus { CREATE, INIT, READ, PROCESS, WRITE, FINISH };
 
   BaseJob(grpc::ServerCompletionQueue *request_queue,
           grpc::ServerCompletionQueue *response_queue)
       : async_op_counter_(0), async_read_in_progress_(false),
-        async_write_in_progress_(false), fail_rate_(0), on_done_called_(false),
+        async_write_in_progress_(false), fail_rate_(0),
         request_queue_(request_queue), response_queue_(response_queue),
         status_(CREATE) {}
 
@@ -40,12 +40,6 @@ public:
   };
 
   const ProcessStatus GetStatus() { return status_; }
-
-  void OnDone(bool /*ok*/) {
-    on_done_called_ = true;
-    if (async_op_counter_ == 0)
-      Done();
-  }
 
   bool FinishWithError(const grpc::Status &error) {
     return FinishWithErrorImpl(error);
@@ -57,36 +51,38 @@ public:
 
   virtual void Proceed(bool ok) {
     switch (status_) {
-    case CREATE: {
+    case CREATE:
       RequestRpc(ok);
       break;
-    }
+    case INIT:
+      Init(ok);
+      break;
     case READ:
       ReadRequest(ok);
-    case PROCESS: {
+      break;
+    case PROCESS:
       HandleRequest(ok);
       break;
-    }
     case WRITE:
-      WriteResponseQueue(ok);
       break;
     case FINISH:
       OnFinish(ok);
-    default:
-      delete this;
+    default:;
+      Done();
     }
   }
 
 protected:
   virtual void RequestRpc(bool ok) = 0;
 
+  virtual void Init(bool ok) = 0;
+
   virtual void ReadRequest(bool ok) = 0;
 
   virtual void HandleRequest(bool ok) = 0;
 
-  virtual void WriteResponseQueue(bool ok) = 0;
-
   virtual void OnFinish(bool ok) {
+    LOG(INFO) << "OnFinish";
     AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_FINISH);
   };
 
@@ -119,13 +115,6 @@ protected:
       break;
     }
 
-    // No async operations are pending and gRPC library notified as earlier that
-    // it is Done with the rpc. Finish the rpc.
-    if (async_op_counter_ == 0 && on_done_called_) {
-      Done();
-      return false;
-    }
-
     return true;
   }
 
@@ -133,22 +122,21 @@ protected:
 
   bool AsyncReadInProgress() const { return async_read_in_progress_; }
 
-  bool AsyncWriteInProgress() const {
-    return async_write_in_progress_;
-  } // TODO fix thread safety
+  bool AsyncWriteInProgress() const { return async_write_in_progress_; }
 
-private:
+protected:
   int32_t async_op_counter_;
   bool async_read_in_progress_;
   bool async_write_in_progress_;
   double fail_rate_;
-  bool on_done_called_;
 
 protected:
-  grpc::ServerContext server_context_;
   grpc::ServerCompletionQueue *request_queue_;
   grpc::ServerCompletionQueue *response_queue_;
   ProcessStatus status_; // The current serving state.
+
+public:
+  grpc::ServerContext server_context_;
 };
 
 } // namespace job

@@ -3,6 +3,7 @@
  * All rights reserved.
  *******************************************************************************/
 
+#include "glog/logging.h"
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -37,7 +38,7 @@ std::string GetDbFileContent(int argc, char **argv) {
   }
   std::ifstream db_file(db_path);
   if (!db_file.is_open()) {
-    std::cout << "Failed to open " << db_path << std::endl;
+    LOG(INFO) << "Failed to open " << db_path;
     return "";
   }
   std::stringstream db;
@@ -134,13 +135,12 @@ void ParseDb(const std::string &db, std::vector<Feature> *feature_list) {
   while (!parser.Finished()) {
     feature_list->push_back(Feature());
     if (!parser.TryParseOne(&feature_list->back())) {
-      std::cout << "Error parsing the db file";
+      LOG(INFO) << "Error parsing the db file";
       feature_list->clear();
       break;
     }
   }
-  std::cout << "DB parsed, loaded " << feature_list->size() << " features."
-            << std::endl;
+  LOG(INFO) << "DB parsed, loaded " << feature_list->size() << " features.";
 }
 
 float ConvertToRadians(float num) { return num * 3.1415926 / 180; }

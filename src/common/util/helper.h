@@ -6,6 +6,7 @@
 #ifndef GRPC_DEMO_UTIL_HELPER_H_
 #define GRPC_DEMO_UTIL_HELPER_H_
 
+#include "glog/logging.h"
 #include "src/common/proto/grpc_service.grpc.pb.h"
 #include "src/common/proto/grpc_service.pb.h"
 #include <string>

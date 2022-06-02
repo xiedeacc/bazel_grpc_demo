@@ -5,7 +5,7 @@
 
 #ifndef SERVER_IMPL_H
 #define SERVER_IMPL_H
-#include <grpcpp/support/status.h>
+#include "job/base_job.h"
 #pragma once
 
 #include <fstream>
@@ -28,8 +28,8 @@
 #include "src/grpc_server/grpc_async_state_stream_server/job/client_streaming_job.h"
 #include "src/grpc_server/grpc_async_state_stream_server/job/server_streaming_job.h"
 #include "src/grpc_server/grpc_async_state_stream_server/job/unary_job.h"
-#include "src/grpc_server/grpc_async_state_stream_server/tag_info.h"
 #include "gtest/gtest_prod.h"
+#include <thread>
 
 namespace grpc_demo {
 namespace grpc_server {
@@ -37,10 +37,7 @@ namespace grpc_async_state_stream_server {
 
 class ServerImpl {
 public:
-  ServerImpl(const std::string &db_content, std::mutex &incoming_tags_mutex,
-             std::list<TagInfo> &incoming_tags)
-      : incoming_tags_mutex_(incoming_tags_mutex),
-        incoming_tags_(incoming_tags) {
+  ServerImpl(const std::string &db_content) {
     grpc_demo::common::util::ParseDb(db_content, &mFeatureList);
   }
 
@@ -75,7 +72,7 @@ private:
 
     rpcHandlers.CreateJob = CreateGetFeatureRpc;
 
-    rpcHandlers.Done = &ServerImpl::Done;
+    rpcHandlers.Done = GetFeatureDone;
 
     rpcHandlers.ProcessIncomingRequest = &ServerImpl::GetFeatureProcessor;
 
@@ -88,13 +85,7 @@ private:
         async_service, request_queue, response_queue, rpcHandlers);
   }
 
-  static void Done(
-      grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *job,
-      bool rpc_cancelled) {
-    delete job;
-  }
-
-  static grpc::Status
+  static void
   GetFeatureProcessor(grpc::ServerContext *server_context, const void *data,
                       const grpc_demo::common::proto::Point *request,
                       grpc_demo::common::proto::Feature *response) {
@@ -106,6 +97,13 @@ private:
     response->mutable_location()->CopyFrom(*point);
   }
 
+  static void GetFeatureDone(
+      grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *job,
+      bool rpc_cancelled) {
+    LOG(INFO) << "Done called! rpc_cancelled: "
+              << (rpc_cancelled ? "true" : "false");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  }
   static void CreateListFeaturesRpc(
       grpc_demo::common::proto::RouteGuide::AsyncService *async_service,
       grpc::ServerCompletionQueue *request_queue,
@@ -120,7 +118,7 @@ private:
     rpcHandlers.CreateJob = CreateListFeaturesRpc;
 
     rpcHandlers.ProcessIncomingRequest = &ServerImpl::ListFeaturesProcessor;
-    rpcHandlers.Done = &ServerImpl::Done;
+    rpcHandlers.Done = ListFeaturesDone;
 
     rpcHandlers.RequestRpc = &grpc_demo::common::proto::RouteGuide::
                                  AsyncService::RequestListFeatures;
@@ -132,7 +130,7 @@ private:
             async_service, request_queue, response_queue, rpcHandlers);
   }
 
-  static grpc::Status
+  static void
   ListFeaturesProcessor(grpc::ServerContext *server_context, const void *data,
                         const grpc_demo::common::proto::Rectangle *request,
                         grpc_demo::common::proto::Feature *response) {
@@ -155,6 +153,13 @@ private:
     }
   }
 
+  static void ListFeaturesDone(
+      grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *job,
+      bool rpc_cancelled) {
+    LOG(INFO) << "Done called! rpc_cancelled: "
+              << (rpc_cancelled ? "true" : "false");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  }
   static void CreateRecordRouteRpc(
       grpc_demo::common::proto::RouteGuide::AsyncService *async_service,
       grpc::ServerCompletionQueue *request_queue,
@@ -169,7 +174,7 @@ private:
     rpcHandlers.CreateJob = CreateRecordRouteRpc;
 
     rpcHandlers.ProcessIncomingRequest = &ServerImpl::RecordRouteProcessor;
-    rpcHandlers.Done = Done;
+    rpcHandlers.Done = RecordRouteDone;
 
     rpcHandlers.RequestRpc =
         &grpc_demo::common::proto::RouteGuide::AsyncService::RequestRecordRoute;
@@ -190,7 +195,7 @@ private:
     RecordRouteState() : pointCount(0), featureCount(0), distance(0.0f) {}
   };
 
-  static grpc::Status
+  static void
   RecordRouteProcessor(grpc::ServerContext *server_context, const void *data,
                        const grpc_demo::common::proto::Point *request,
                        grpc_demo::common::proto::RouteSummary *response) {
@@ -238,6 +243,14 @@ private:
     }
   }
 
+  static void RecordRouteDone(
+      grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *job,
+      bool rpc_cancelled) {
+    LOG(INFO) << "Done called! rpc_cancelled: "
+              << (rpc_cancelled ? "true" : "false");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  }
+
   static void CreateRouteChatRpc(
       grpc_demo::common::proto::RouteGuide::AsyncService *async_service,
       grpc::ServerCompletionQueue *request_queue,
@@ -252,7 +265,7 @@ private:
     rpcHandlers.CreateJob = CreateRouteChatRpc;
 
     rpcHandlers.ProcessIncomingRequest = RouteChatProcessor;
-    rpcHandlers.Done = Done;
+    rpcHandlers.Done = RouteChatDone;
 
     rpcHandlers.RequestRpc =
         &grpc_demo::common::proto::RouteGuide::AsyncService::RequestRouteChat;
@@ -265,17 +278,23 @@ private:
                                                  response_queue, rpcHandlers);
   }
 
-  static grpc::Status
+  static void
   RouteChatProcessor(grpc::ServerContext *server_context, const void *data,
                      const grpc_demo::common::proto::RouteNote *request,
                      grpc_demo::common::proto::RouteNote *response) {
     auto note =
         static_cast<const grpc_demo::common::proto::RouteNote *>(request);
-    // Simply echo the note back.
     if (note) {
-      ((grpc_demo::common::proto::RouteNote *)response)->CopyFrom(*note);
-    } else {
+      response->CopyFrom(*note);
     }
+  }
+
+  static void RouteChatDone(
+      grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *job,
+      bool rpc_cancelled) {
+    LOG(INFO) << "Done called! rpc_cancelled: "
+              << (rpc_cancelled ? "true" : "false");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
 
   void HandleRpcs() {
@@ -284,19 +303,26 @@ private:
     CreateRecordRouteRpc(&mRouteGuideService, mCQ.get(), mCQ.get());
     CreateRouteChatRpc(&mRouteGuideService, mCQ.get(), mCQ.get());
 
-    TagInfo tagInfo;
     while (true) {
-      GPR_ASSERT(mCQ->Next((void **)&tagInfo.tagProcessor,
-                           &tagInfo.ok)); // GRPC_TODO - Handle returned value
-
-      incoming_tags_mutex_.lock();
-      incoming_tags_.push_back(tagInfo);
-      incoming_tags_mutex_.unlock();
+      void *tag;
+      bool ok;
+      bool ret = mCQ->Next(&tag, &ok);
+      if (tag == nullptr) {
+        LOG(ERROR) << "this should never happen...";
+        continue;
+      }
+      LOG(INFO) << "job address: " << tag
+                << ", ok: " << (ok ? "true" : "false");
+      if (!tag) {
+        LOG(INFO) << "tag already deleted!";
+        continue;
+      }
+      ((grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *)
+           tag)
+          ->Proceed(ok);
     }
   }
 
-  std::list<TagInfo> &incoming_tags_;
-  std::mutex &incoming_tags_mutex_;
   std::unique_ptr<grpc::ServerCompletionQueue> mCQ;
   grpc_demo::common::proto::RouteGuide::AsyncService mRouteGuideService;
   static std::unordered_map<

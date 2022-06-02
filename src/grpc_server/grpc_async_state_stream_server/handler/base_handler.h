@@ -32,8 +32,8 @@ public:
                grpc::ServerCompletionQueue *, grpc::ServerCompletionQueue *);
 
   using ProcessIncomingRequestFun =
-      grpc::Status (*)(grpc::ServerContext *server_context, const void *,
-                       const RequestType *, ResponseType *);
+      void (*)(grpc::ServerContext *server_context, const void *,
+               const RequestType *, ResponseType *);
 
   using DoneFun = void (*)(
       grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *,

@@ -33,25 +33,27 @@ public:
       : BaseJob(request_queue, response_queue), async_service_(async_service),
         responder_(&server_context_), handler_(handler) {
     ++unary_rpc_counter;
-    on_done_ = std::bind(&BaseJob::OnDone, this, std::placeholders::_1);
     Proceed(true);
   }
 
 protected:
   // CREATE
   void RequestRpc(bool ok) {
-    server_context_.AsyncNotifyWhenDone(&on_done_);
-    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
+    server_context_.AsyncNotifyWhenDone(this);
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
 
     handler_.RequestRpc(async_service_, &server_context_, &request_,
                         &responder_, request_queue_, response_queue_, this);
     status_ = PROCESS;
   }
 
-private:
+  void Init(bool ok) {
+    LOG(INFO) << "Init";
+    handler_.CreateJob(async_service_, request_queue_, response_queue_);
+  }
   // PROCESS
   void HandleRequest(bool ok) {
-    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
       if (ok) {
         handler_.CreateJob(async_service_, request_queue_, response_queue_);
         handler_.ProcessIncomingRequest(&server_context_, this, &request_,
@@ -98,7 +100,6 @@ public:
   static std::atomic<int32_t> unary_rpc_counter;
 
 private:
-  std::function<void(bool)> on_done_;
   ServiceType *async_service_;
   typename ThisRpcTypeHandler::GRPCResponder responder_;
   ThisRpcTypeHandler handler_;

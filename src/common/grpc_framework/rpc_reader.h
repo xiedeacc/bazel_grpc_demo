@@ -14,10 +14,10 @@ namespace grpc_demo {
 namespace common {
 namespace grpc_framework {
 
-template <typename ResponseType, typename ReaderType> class reader;
+template <typename RequestType, typename ReaderType> class reader;
 
 class ReaderCallback {
-  template <typename ResponseType, typename ReaderType> friend class reader;
+  template <typename RequestType, typename ReaderType> friend class reader;
 
 public:
   virtual void OnReadError() = 0;
@@ -25,7 +25,7 @@ public:
   virtual void OnRead(void *req) = 0;
 };
 
-template <typename ResponseType, typename ReaderType>
+template <typename RequestType, typename ReaderType>
 class Reader : public TagBase {
 public:
   Reader(ReaderCallback *cb, ReaderType &async_reader)
@@ -39,7 +39,7 @@ public:
   void Read() {
     gpr_log(GPR_DEBUG, "start reading");
     arena_->Reset();
-    req_ = google::protobuf::Arena::Create<ResponseType>(arena_.get());
+    req_ = google::protobuf::Arena::Create<RequestType>(arena_.get());
     reader_impl_.Read(req_, this);
   };
 
@@ -57,7 +57,7 @@ private:
   ReaderCallback &callback_;
   ReaderType &reader_impl_;
   bool auto_read_;
-  ResponseType *req_;
+  RequestType *req_;
 
   std::unique_ptr<google::protobuf::Arena> arena_;
 };

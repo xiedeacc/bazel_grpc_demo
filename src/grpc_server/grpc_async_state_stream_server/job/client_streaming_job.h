@@ -35,25 +35,25 @@ public:
         responder_(&server_context_), handler_(handler),
         client_streaming_done_(false) {
     ++client_streaming_rpc_counter;
-    on_done_ = std::bind(&BaseJob::OnDone, this, std::placeholders::_1);
     Proceed(true);
   }
 
 protected:
   void RequestRpc(bool ok) {
-    server_context_.AsyncNotifyWhenDone(&on_done_);
-
-    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
-
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
+    status_ = READ;
     handler_.RequestRpc(async_service_, &server_context_, &responder_,
                         request_queue_, response_queue_, this);
-    status_ = READ;
   }
 
-private:
+  void Init(bool ok) {
+    LOG(INFO) << "Init";
+    handler_.CreateJob(async_service_, request_queue_, response_queue_);
+  }
+
   // READ
   void ReadRequest(bool ok) {
-    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
       if (ok) {
         status_ = PROCESS;
         AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
@@ -93,7 +93,6 @@ private:
     return true;
   }
 
-  void WriteResponseQueue(bool ok) {}
   void Done() override {
     handler_.Done(this, server_context_.IsCancelled());
     --client_streaming_rpc_counter;
@@ -105,7 +104,6 @@ public:
   static std::atomic<int32_t> client_streaming_rpc_counter;
 
 private:
-  std::function<void(bool)> on_done_;
   ServiceType *async_service_;
   typename ThisRpcTypeHandler::GRPCResponder responder_;
   ThisRpcTypeHandler handler_;

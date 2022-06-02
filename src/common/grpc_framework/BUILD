@@ -29,24 +29,6 @@ cc_library(
 )
 
 cc_library(
-    name = "msg_queue",
-    hdrs = [
-        "msg_queue.h",
-    ],
-    deps = [
-        "//src/common/proto:grpc_service",
-        "@boost//:algorithm",
-        "@boost//:thread",
-        "@com_github_gflags_gflags//:gflags",
-        "@com_github_gperftools_gperftools//:gperftools",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
-        "@glog",
-        "@jemalloc",
-    ],
-)
-
-cc_library(
     name = "client_impl",
     hdrs = [
         "client_impl.h",

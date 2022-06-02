@@ -5,7 +5,10 @@
 
 #ifndef grpc_server_RPC_BI_STREAMING_RPC_H
 #define grpc_server_RPC_BI_STREAMING_RPC_H
+#include <functional>
 #include <grpcpp/completion_queue.h>
+#include <grpcpp/support/status.h>
+#include <grpcpp/support/status_code_enum.h>
 #pragma once
 
 #include "src/grpc_server/grpc_async_state_stream_server/handler/base_handler.h"
@@ -34,25 +37,41 @@ public:
         responder_(&server_context_), handler_(handler),
         server_streaming_done_(false), client_streaming_done_(false) {
     ++bi_streaming_rpc_counter;
-    on_done_ = std::bind(&BaseJob::OnDone, this, std::placeholders::_1);
+    LOG(INFO) << "Pending Bidirectional Streaming Rpcs Count = "
+              << bi_streaming_rpc_counter;
+
+    // server_context_.AsyncNotifyWhenDone(this);
     Proceed(true);
   }
+
+  virtual ~BidirectionalStreamingJob() override {}
 
 protected:
   // CREATE
   void RequestRpc(bool ok) {
-    server_context_.AsyncNotifyWhenDone(&on_done_);
+    status_ = INIT;
     AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
-
     handler_.RequestRpc(async_service_, &server_context_, &responder_,
                         request_queue_, response_queue_, this);
-    status_ = READ;
   }
 
-private:
+  void Init(bool ok) {
+    LOG(INFO) << "Init";
+    handler_.CreateJob(async_service_, request_queue_, response_queue_);
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
+      if (ok) {
+        AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
+        LOG(INFO) << "read";
+        status_ = PROCESS;
+        responder_.Read(&request_, this);
+      }
+    }
+  }
+
   // READ
   void ReadRequest(bool ok) {
-    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
+    LOG(INFO) << "read, ok: " << (ok ? "true" : "false");
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
       if (ok) {
         status_ = PROCESS;
         AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
@@ -65,16 +84,16 @@ private:
   void HandleRequest(bool ok) {
     if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
       if (ok) {
+        LOG(INFO) << "message: " << request_.message()
+                  << ", latitude: " << request_.location().latitude()
+                  << ", longitude: " << request_.location().longitude();
         handler_.ProcessIncomingRequest(&server_context_, this, &request_,
                                         &response_);
-        AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
-        responder_.Read(&request_, this);
+        SendResponse(&response_);
       } else {
         client_streaming_done_ = true;
-        handler_.CreateJob(async_service_, request_queue_, response_queue_);
-        handler_.ProcessIncomingRequest(&server_context_, this, nullptr,
-                                        &response_);
-        SendResponse(&response_);
+        LOG(INFO) << "client_streaming_done_: true, send nullptr";
+        SendResponse(nullptr);
       }
     }
   }
@@ -82,45 +101,29 @@ private:
   bool SendResponse(const google::protobuf::Message *response_msg) {
     auto response = static_cast<const ResponseType *>(response_msg);
     if (response == nullptr && !client_streaming_done_) {
-      // FinishWithError();
+      LOG(ERROR) << "this should never happen!";
+      FinishWithError(
+          grpc::Status(grpc::StatusCode::INTERNAL, "mistake condition"));
       return false;
     }
 
     if (response != nullptr) {
       if (!AsyncWriteInProgress()) {
-        status_ = WRITE;
-        DoSendResponse();
+        AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_WRITE);
+        status_ = READ;
+        AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
+        responder_.Write(response_, this);
+        AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_WRITE);
       }
     } else {
       server_streaming_done_ = true;
       if (!AsyncWriteInProgress()) {
         status_ = FINISH;
-        DoFinish();
+        AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+        responder_.Finish(grpc::Status::OK, this);
       }
     }
     return true;
-  }
-
-  void DoSendResponse() {
-    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_WRITE);
-    responder_.Write(response_, this);
-  }
-
-  void WriteResponseQueue(bool ok) {
-    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_WRITE)) {
-      if (ok) {
-        status_ = WRITE;
-        DoSendResponse();
-      } else if (server_streaming_done_) {
-        status_ = FINISH;
-        DoFinish();
-      }
-    }
-  }
-
-  void DoFinish() {
-    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
-    responder_.Finish(grpc::Status::OK, this);
   }
 
   bool FinishWithErrorImpl(const grpc::Status &error) override {
@@ -129,18 +132,24 @@ private:
     return true;
   }
 
-  void Done() override { // TODO trigger condition?
-    handler_.Done(this, server_context_.IsCancelled());
-    --bi_streaming_rpc_counter;
-    LOG(INFO) << "Pending Bidirectional Streaming Rpcs Count = "
-              << bi_streaming_rpc_counter;
+  void Done() override {
+    LOG(INFO) << "Done! async_op_counter: " << async_op_counter_
+              << ", job address: " << this;
+    if (async_op_counter_ == 0) {
+      --bi_streaming_rpc_counter;
+      LOG(INFO) << "Pending Bidirectional Streaming Rpcs Count = "
+                << bi_streaming_rpc_counter;
+      // handler_.Done(this, server_context_.IsCancelled());
+      handler_.Done(this, true);
+      delete this;
+    }
+    // handler_.Done(this, true);
   }
 
 public:
   static std::atomic<int32_t> bi_streaming_rpc_counter;
 
 private:
-  std::function<void(bool)> on_done_;
   ServiceType *async_service_;
   typename ThisRpcTypeHandler::GRPCResponder responder_;
   ThisRpcTypeHandler handler_;

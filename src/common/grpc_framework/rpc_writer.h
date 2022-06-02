@@ -162,7 +162,8 @@ public:
       delete arena;
     }
     callback_.OnWrite(output_id++);
-
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    exit(-1);
     if (write_buffer_.empty()) {
       writer_impl_.WritesDone(this);
       status_ = DONE;

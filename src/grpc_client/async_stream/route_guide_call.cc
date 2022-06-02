@@ -37,7 +37,7 @@ RouteGuideCall::RouteGuideCall(ClientBase *client) : client(client) {
   notes_.push_back(MakeRouteNote("First message", 0, 0));
   notes_.push_back(MakeRouteNote("Second message", 0, 1));
   notes_.push_back(MakeRouteNote("Third message", 1, 0));
-  notes_.push_back(MakeRouteNote("Fourth message", 0, 0));
+  notes_.push_back(MakeRouteNote("Fourth message", 1, 1));
 }
 
 void RouteGuideCall::OnRead(void *message) { client->OnRouteChatRead(message); }
