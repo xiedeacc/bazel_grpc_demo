@@ -5,8 +5,8 @@
 
 #ifndef SERVER_IMPL_H
 #define SERVER_IMPL_H
-#include "job/base_job.h"
 #pragma once
+#include "job/base_job.h"
 
 #include <fstream>
 #include <mutex>
@@ -99,11 +99,8 @@ private:
 
   static void GetFeatureDone(
       grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *job,
-      bool rpc_cancelled) {
-    LOG(INFO) << "Done called! rpc_cancelled: "
-              << (rpc_cancelled ? "true" : "false");
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  }
+      bool rpc_cancelled) {}
+
   static void CreateListFeaturesRpc(
       grpc_demo::common::proto::RouteGuide::AsyncService *async_service,
       grpc::ServerCompletionQueue *request_queue,
@@ -136,7 +133,9 @@ private:
                         grpc_demo::common::proto::Feature *response) {
     auto rectangle =
         static_cast<const grpc_demo::common::proto::Rectangle *>(request);
-
+    grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *job =
+        (grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *)
+            data;
     auto lo = rectangle->lo();
     auto hi = rectangle->hi();
     long left = (std::min)(lo.longitude(), hi.longitude());
@@ -149,17 +148,16 @@ private:
           f.location().longitude() <= right &&
           f.location().latitude() >= bottom && f.location().latitude() <= top) {
         response->CopyFrom(f);
+        job->SendResponse(response);
       }
     }
+    job->SendResponse(nullptr);
   }
 
   static void ListFeaturesDone(
       grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *job,
-      bool rpc_cancelled) {
-    LOG(INFO) << "Done called! rpc_cancelled: "
-              << (rpc_cancelled ? "true" : "false");
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  }
+      bool rpc_cancelled) {}
+
   static void CreateRecordRouteRpc(
       grpc_demo::common::proto::RouteGuide::AsyncService *async_service,
       grpc::ServerCompletionQueue *request_queue,
@@ -222,7 +220,6 @@ private:
             grpc_demo::common::util::GetDistance(state.previous, *point);
       }
       state.previous = *point;
-
     } else {
       std::chrono::system_clock::time_point endTime =
           std::chrono::system_clock::now();
@@ -245,11 +242,7 @@ private:
 
   static void RecordRouteDone(
       grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *job,
-      bool rpc_cancelled) {
-    LOG(INFO) << "Done called! rpc_cancelled: "
-              << (rpc_cancelled ? "true" : "false");
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  }
+      bool rpc_cancelled) {}
 
   static void CreateRouteChatRpc(
       grpc_demo::common::proto::RouteGuide::AsyncService *async_service,
@@ -291,11 +284,7 @@ private:
 
   static void RouteChatDone(
       grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *job,
-      bool rpc_cancelled) {
-    LOG(INFO) << "Done called! rpc_cancelled: "
-              << (rpc_cancelled ? "true" : "false");
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  }
+      bool rpc_cancelled) {}
 
   void HandleRpcs() {
     CreateGetFeatureRpc(&mRouteGuideService, mCQ.get(), mCQ.get());
@@ -313,13 +302,22 @@ private:
       }
       LOG(INFO) << "job address: " << tag
                 << ", ok: " << (ok ? "true" : "false");
+      grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob
+          *job = (grpc_demo::grpc_server::grpc_async_state_stream_server::job::
+                      BaseJob *)tag;
+      LOG(INFO) << "cancelled: "
+                << (job->server_context_.IsCancelled() ? "true" : "false");
+      if (!job->AsyncOpInProgress()) {
+        LOG(INFO) << "OnDone called!";
+        job->Done();
+        continue;
+      }
+
       if (!tag) {
         LOG(INFO) << "tag already deleted!";
         continue;
       }
-      ((grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob *)
-           tag)
-          ->Proceed(ok);
+      job->Proceed(ok);
     }
   }
 

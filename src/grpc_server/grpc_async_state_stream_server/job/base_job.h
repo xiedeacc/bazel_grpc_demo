@@ -5,12 +5,15 @@
 
 #ifndef grpc_server_RPC_BASE_RPC_H
 #define grpc_server_RPC_BASE_RPC_H
-#include <grpcpp/completion_queue.h>
-#include <grpcpp/server_context.h>
 #pragma once
+#include <grpcpp/completion_queue.h>
+#include <grpcpp/grpcpp.h>
+#include <grpcpp/server_context.h>
 
 #include "glog/logging.h"
-#include "grpc++/grpc++.h"
+#include "src/common/proto/grpc_service.grpc.pb.h"
+#include "src/common/proto/grpc_service.pb.h"
+
 namespace grpc_demo {
 namespace grpc_server {
 namespace grpc_async_state_stream_server {
@@ -55,31 +58,49 @@ public:
       RequestRpc(ok);
       break;
     case INIT:
+      // LOG(INFO) << "INIT";
       Init(ok);
       break;
     case READ:
+      // LOG(INFO) << "READ";
       ReadRequest(ok);
       break;
     case PROCESS:
+      // LOG(INFO) << "PROCESS";
       HandleRequest(ok);
       break;
     case WRITE:
+      WriteNext(ok);
       break;
     case FINISH:
+      // LOG(INFO) << "FINISH";
       OnFinish(ok);
-    default:;
-      Done();
     }
   }
+
+  bool AsyncOpInProgress() const { return async_op_counter_ > 0; }
+
+  virtual bool SendResponse(const google::protobuf::Message *response_msg) = 0;
 
 protected:
   virtual void RequestRpc(bool ok) = 0;
 
   virtual void Init(bool ok) = 0;
 
-  virtual void ReadRequest(bool ok) = 0;
+  virtual void ReadRequest(bool ok) {
+    LOG(ERROR) << "should never called!";
+    exit(-1);
+  }
 
-  virtual void HandleRequest(bool ok) = 0;
+  virtual void HandleRequest(bool ok) {
+    LOG(ERROR) << "should never called!";
+    exit(-1);
+  }
+
+  virtual void WriteNext(bool ok) {
+    LOG(ERROR) << "should never called!";
+    exit(-1);
+  };
 
   virtual void OnFinish(bool ok) {
     LOG(INFO) << "OnFinish";
@@ -104,7 +125,6 @@ protected:
 
   bool AsyncOpFinished(AsyncOpType opType) {
     --async_op_counter_;
-
     switch (opType) {
     case ASYNC_OP_TYPE_READ:
       async_read_in_progress_ = false;
@@ -114,11 +134,8 @@ protected:
     default: // Don't care about other ops
       break;
     }
-
     return true;
   }
-
-  bool AsyncOpInProgress() const { return async_op_counter_ != 0; }
 
   bool AsyncReadInProgress() const { return async_read_in_progress_; }
 
@@ -134,7 +151,6 @@ protected:
   grpc::ServerCompletionQueue *request_queue_;
   grpc::ServerCompletionQueue *response_queue_;
   ProcessStatus status_; // The current serving state.
-
 public:
   grpc::ServerContext server_context_;
 };

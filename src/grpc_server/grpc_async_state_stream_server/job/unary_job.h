@@ -33,53 +33,49 @@ public:
       : BaseJob(request_queue, response_queue), async_service_(async_service),
         responder_(&server_context_), handler_(handler) {
     ++unary_rpc_counter;
+    LOG(INFO) << "pending unary rpcs count = " << unary_rpc_counter;
+    server_context_.AsyncNotifyWhenDone(this);
     Proceed(true);
   }
 
 protected:
   // CREATE
   void RequestRpc(bool ok) {
-    server_context_.AsyncNotifyWhenDone(this);
-    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
-
+    status_ = INIT;
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
     handler_.RequestRpc(async_service_, &server_context_, &request_,
                         &responder_, request_queue_, response_queue_, this);
-    status_ = PROCESS;
   }
 
   void Init(bool ok) {
     LOG(INFO) << "Init";
     handler_.CreateJob(async_service_, request_queue_, response_queue_);
-  }
-  // PROCESS
-  void HandleRequest(bool ok) {
-    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
       if (ok) {
-        handler_.CreateJob(async_service_, request_queue_, response_queue_);
         handler_.ProcessIncomingRequest(&server_context_, this, &request_,
                                         &response_);
         SendResponse(&response_);
-        status_ = FINISH;
       } else {
-        // FinishWithError(ok);
+        SendResponse(nullptr);
       }
     }
   }
-  // READ
-  void ReadRequest(bool ok) {}
 
-  void WriteResponseQueue(bool ok) {}
-
-  bool SendResponse(const google::protobuf::Message *responseMsg) {
-    auto response = static_cast<const ResponseType *>(responseMsg);
-    if (response == nullptr) {
-      // FinishWithError(ok);
-      return false;
+  bool SendResponse(const google::protobuf::Message *response_msg) {
+    LOG(INFO) << "SendResponse, nullptr: "
+              << (!response_msg ? "true" : "false");
+    auto response = static_cast<const ResponseType *>(response_msg);
+    if (response != nullptr) {
+      if (!AsyncWriteInProgress()) {
+        AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+        status_ = FINISH;
+        responder_.Finish(response_, grpc::Status::OK, this);
+      }
+    } else {
+      LOG(ERROR) << "this should never happen!";
+      FinishWithError(grpc::Status(grpc::StatusCode::INTERNAL,
+                                   "this should never happen!"));
     }
-
-    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
-    responder_.Finish(response_, grpc::Status::OK, this);
-    status_ = FINISH;
     return true;
   }
 
@@ -91,9 +87,14 @@ protected:
   }
 
   void Done() override {
-    handler_.Done(this, server_context_.IsCancelled());
-    --unary_rpc_counter;
-    LOG(INFO) << "Pending Unary Rpcs Count = " << unary_rpc_counter;
+    LOG(INFO) << "Done! async_op_counter: " << async_op_counter_
+              << ", job address: " << this;
+    if (async_op_counter_ == 0) {
+      --unary_rpc_counter;
+      LOG(INFO) << "pending unary rpcs count = " << unary_rpc_counter;
+      handler_.Done(this, server_context_.IsCancelled());
+      delete this;
+    }
   }
 
 public:

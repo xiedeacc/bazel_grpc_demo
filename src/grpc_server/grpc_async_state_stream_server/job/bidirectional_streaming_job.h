@@ -5,11 +5,12 @@
 
 #ifndef grpc_server_RPC_BI_STREAMING_RPC_H
 #define grpc_server_RPC_BI_STREAMING_RPC_H
+#pragma once
 #include <functional>
 #include <grpcpp/completion_queue.h>
 #include <grpcpp/support/status.h>
 #include <grpcpp/support/status_code_enum.h>
-#pragma once
+#include <thread>
 
 #include "src/grpc_server/grpc_async_state_stream_server/handler/base_handler.h"
 #include "src/grpc_server/grpc_async_state_stream_server/handler/bidirectional_streaming_handler.h"
@@ -17,6 +18,7 @@
 #include "src/grpc_server/grpc_async_state_stream_server/handler/server_streaming_handler.h"
 #include "src/grpc_server/grpc_async_state_stream_server/handler/unary_handler.h"
 #include "src/grpc_server/grpc_async_state_stream_server/job/base_job.h"
+
 namespace grpc_demo {
 namespace grpc_server {
 namespace grpc_async_state_stream_server {
@@ -37,10 +39,9 @@ public:
         responder_(&server_context_), handler_(handler),
         server_streaming_done_(false), client_streaming_done_(false) {
     ++bi_streaming_rpc_counter;
-    LOG(INFO) << "Pending Bidirectional Streaming Rpcs Count = "
+    LOG(INFO) << "pending bidirectional streaming rpcs count = "
               << bi_streaming_rpc_counter;
-
-    // server_context_.AsyncNotifyWhenDone(this);
+    server_context_.AsyncNotifyWhenDone(this);
     Proceed(true);
   }
 
@@ -61,7 +62,6 @@ protected:
     if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
       if (ok) {
         AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
-        LOG(INFO) << "read";
         status_ = PROCESS;
         responder_.Read(&request_, this);
       }
@@ -70,7 +70,7 @@ protected:
 
   // READ
   void ReadRequest(bool ok) {
-    LOG(INFO) << "read, ok: " << (ok ? "true" : "false");
+    // LOG(INFO) << "ReadRequest, ok: " << (ok ? "true" : "false");
     if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
       if (ok) {
         status_ = PROCESS;
@@ -82,6 +82,7 @@ protected:
 
   // PROCESS
   void HandleRequest(bool ok) {
+    // LOG(INFO) << "HandleRequest, ok: " << (ok ? "true" : "false");
     if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
       if (ok) {
         LOG(INFO) << "message: " << request_.message()
@@ -92,18 +93,20 @@ protected:
         SendResponse(&response_);
       } else {
         client_streaming_done_ = true;
-        LOG(INFO) << "client_streaming_done_: true, send nullptr";
+        // LOG(INFO) << "client_streaming_done_: true, send nullptr";
         SendResponse(nullptr);
       }
     }
   }
 
   bool SendResponse(const google::protobuf::Message *response_msg) {
+    LOG(INFO) << "SendResponse, nullptr: "
+              << (!response_msg ? "true" : "false");
     auto response = static_cast<const ResponseType *>(response_msg);
     if (response == nullptr && !client_streaming_done_) {
       LOG(ERROR) << "this should never happen!";
-      FinishWithError(
-          grpc::Status(grpc::StatusCode::INTERNAL, "mistake condition"));
+      FinishWithError(grpc::Status(grpc::StatusCode::INTERNAL,
+                                   "this should never happen!"));
       return false;
     }
 
@@ -120,6 +123,7 @@ protected:
       if (!AsyncWriteInProgress()) {
         status_ = FINISH;
         AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         responder_.Finish(grpc::Status::OK, this);
       }
     }
@@ -137,13 +141,12 @@ protected:
               << ", job address: " << this;
     if (async_op_counter_ == 0) {
       --bi_streaming_rpc_counter;
-      LOG(INFO) << "Pending Bidirectional Streaming Rpcs Count = "
+      LOG(INFO) << "pending bidirectional streaming rpcs count = "
                 << bi_streaming_rpc_counter;
-      // handler_.Done(this, server_context_.IsCancelled());
-      handler_.Done(this, true);
+      handler_.Done(this, server_context_.IsCancelled());
+      // handler_.Done(this, true);
       delete this;
     }
-    // handler_.Done(this, true);
   }
 
 public:

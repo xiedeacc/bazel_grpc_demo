@@ -142,8 +142,6 @@ public:
   virtual void Process() {
     static int count = 0;
     LOG(INFO) << ++count;
-    // std::this_thread::sleep_for(std::chrono::milliseconds(1000 * 10));
-
     lock_t lock(mtx_);
     if (status_ == DONE) {
       LOG(INFO) << "write done!";
@@ -162,8 +160,6 @@ public:
       delete arena;
     }
     callback_.OnWrite(output_id++);
-    // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    // exit(-1);
     if (write_buffer_.empty()) {
       writer_impl_.WritesDone(this);
       status_ = DONE;

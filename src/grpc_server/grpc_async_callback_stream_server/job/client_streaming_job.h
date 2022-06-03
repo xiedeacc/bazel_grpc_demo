@@ -65,7 +65,7 @@ private:
 
     if (!mClientStreamingDone) {
       // It does not make sense for server to finish the rpc before client has
-      // streamed all the requests. Supporting this behavior could lead to
+      // // streamed all the requests. Supporting this behavior could lead to
       // writing error-prone code so it is specifically disallowed.
       GPR_ASSERT(false); // If you want to cancel, use BaseJob::finishWithError
                          // with grpc::Cancelled status.

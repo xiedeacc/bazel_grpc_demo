@@ -36,47 +36,51 @@ public:
         responder_(&server_context_), handler_(handler),
         server_streaming_done_(false) {
     ++server_streaming_rpc_counter;
+    LOG(INFO) << "pending server streaming rpcs count = "
+              << server_streaming_rpc_counter;
+    server_context_.AsyncNotifyWhenDone(this);
     Proceed(true);
   }
 
 protected:
   // CREATE
   void RequestRpc(bool ok) {
-    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
-
+    status_ = INIT;
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
     handler_.RequestRpc(async_service_, &server_context_, &request_,
                         &responder_, request_queue_, response_queue_, this);
-
-    status_ = PROCESS;
   }
 
   void Init(bool ok) {
-    LOG(INFO) << "Init";
+    LOG(INFO) << "Init, "
+              << "ok: " << (ok ? "true" : "false");
     handler_.CreateJob(async_service_, request_queue_, response_queue_);
-  }
-  // PROCESS
-  void HandleRequest(bool ok) {
-    handler_.CreateJob(async_service_, request_queue_, response_queue_);
-    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
       if (ok) {
         handler_.ProcessIncomingRequest(&server_context_, this, &request_,
                                         &response_);
-        SendResponse(&response_);
       }
     }
   }
 
-  bool SendResponse(const google::protobuf::Message *responseMsg) {
-    auto response = static_cast<const ResponseType *>(responseMsg);
+  bool SendResponse(const google::protobuf::Message *response_msg) {
+    LOG(INFO) << "SendResponse, nullptr: "
+              << (!response_msg ? "true" : "false");
+    auto response = static_cast<const ResponseType *>(response_msg);
     if (response != nullptr) {
+      response_list_.push_back(*response);
+      grpc_demo::common::proto::Feature *feature =
+          (grpc_demo::common::proto::Feature *)response;
+      LOG(INFO) << "response_list size: " << response_list_.size();
+      LOG(INFO) << "name: " << feature->name()
+                << ", latitude: " << feature->location().latitude()
+                << ", longitude: " << feature->location().longitude();
       if (!AsyncWriteInProgress()) {
-        status_ = WRITE;
         DoSendResponse();
       }
     } else {
       server_streaming_done_ = true;
       if (!AsyncWriteInProgress()) {
-        status_ = FINISH;
         DoFinish();
       }
     }
@@ -84,26 +88,27 @@ protected:
   }
 
   void DoSendResponse() {
+    status_ = WRITE;
     AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_WRITE);
-    responder_.Write(response_, this);
+    responder_.Write(response_list_.front(), this);
   }
 
-  void WriteResponseQueue(bool ok) {
+  void WriteNext(bool ok) {
     if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_WRITE)) {
+      response_list_.pop_front();
       if (ok) {
-        status_ = WRITE;
-        DoSendResponse();
-      } else if (server_streaming_done_) {
-        status_ = FINISH;
-        DoFinish();
+        if (!response_list_.empty()) {
+          status_ = WRITE;
+          DoSendResponse();
+        } else if (server_streaming_done_) {
+          DoFinish();
+        }
       }
     }
   }
 
-  // READ
-  void ReadRequest(bool ok) {}
-
   void DoFinish() {
+    status_ = FINISH;
     AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
     responder_.Finish(grpc::Status::OK, this);
   }
@@ -115,10 +120,15 @@ protected:
   }
 
   void Done() override {
-    handler_.Done(this, server_context_.IsCancelled());
-    --server_streaming_rpc_counter;
-    LOG(INFO) << "Pending Server Streaming Rpcs Count = "
-              << server_streaming_rpc_counter;
+    LOG(INFO) << "Done! async_op_counter: " << async_op_counter_
+              << ", job address: " << this;
+    if (async_op_counter_ == 0) {
+      --server_streaming_rpc_counter;
+      LOG(INFO) << "pending server streaming rpcs count = "
+                << server_streaming_rpc_counter;
+      handler_.Done(this, server_context_.IsCancelled());
+      delete this;
+    }
   }
 
 public:
@@ -130,6 +140,7 @@ private:
   ThisRpcTypeHandler handler_;
   RequestType request_;
   ResponseType response_;
+  std::list<ResponseType> response_list_;
   bool server_streaming_done_;
 };
 

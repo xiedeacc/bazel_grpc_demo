@@ -35,13 +35,19 @@ public:
         responder_(&server_context_), handler_(handler),
         client_streaming_done_(false) {
     ++client_streaming_rpc_counter;
+    LOG(INFO) << "pending client streaming rpcs count = "
+              << client_streaming_rpc_counter;
+    server_context_.AsyncNotifyWhenDone(this);
     Proceed(true);
   }
 
+  virtual ~ClientStreamingJob() override {}
+
 protected:
+  // CREATE
   void RequestRpc(bool ok) {
-    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
-    status_ = READ;
+    status_ = INIT;
+    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
     handler_.RequestRpc(async_service_, &server_context_, &responder_,
                         request_queue_, response_queue_, this);
   }
@@ -49,6 +55,13 @@ protected:
   void Init(bool ok) {
     LOG(INFO) << "Init";
     handler_.CreateJob(async_service_, request_queue_, response_queue_);
+    if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST)) {
+      if (ok) {
+        AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
+        status_ = PROCESS;
+        responder_.Read(&request_, this);
+      }
+    }
   }
 
   // READ
@@ -67,23 +80,38 @@ protected:
     if (AsyncOpFinished(BaseJob::ASYNC_OP_TYPE_READ)) {
       if (ok) {
         handler_.ProcessIncomingRequest(&server_context_, this, &request_,
-                                        &response_);
+                                        nullptr);
         AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_READ);
+        status_ = READ;
         responder_.Read(&request_, this);
       } else {
         client_streaming_done_ = true;
-        handler_.CreateJob(async_service_, request_queue_, response_queue_);
         handler_.ProcessIncomingRequest(&server_context_, this, nullptr,
                                         &response_);
+        // LOG(INFO) << "client_streaming_done_: true, send nullptr";
         SendResponse(&response_);
       }
     }
   }
 
-  bool SendResponse(const google::protobuf::Message *response) {
-    AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
-    responder_.Finish(response_, grpc::Status::OK, this);
-    status_ = FINISH;
+  bool SendResponse(const google::protobuf::Message *response_msg) {
+    LOG(INFO) << "SendResponse, nullptr: "
+              << (!response_msg ? "true" : "false");
+    auto response = static_cast<const ResponseType *>(response_msg);
+    if (response == nullptr && !client_streaming_done_) {
+      LOG(ERROR) << "this should never happen!";
+      FinishWithError(
+          grpc::Status(grpc::StatusCode::INTERNAL, "mistake condition"));
+      return false;
+    }
+
+    if (response != nullptr) {
+      if (!AsyncWriteInProgress()) {
+        AsyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
+        status_ = FINISH;
+        responder_.Finish(response_, grpc::Status::OK, this);
+      }
+    }
     return true;
   }
 
@@ -94,10 +122,15 @@ protected:
   }
 
   void Done() override {
-    handler_.Done(this, server_context_.IsCancelled());
-    --client_streaming_rpc_counter;
-    LOG(INFO) << "Pending Client Streaming Rpcs Count = "
-              << client_streaming_rpc_counter;
+    LOG(INFO) << "Done! async_op_counter: " << async_op_counter_
+              << ", job address: " << this;
+    if (async_op_counter_ == 0) {
+      --client_streaming_rpc_counter;
+      LOG(INFO) << "pending client streaming rpcs count = "
+                << client_streaming_rpc_counter;
+      handler_.Done(this, server_context_.IsCancelled());
+      delete this;
+    }
   }
 
 public:
