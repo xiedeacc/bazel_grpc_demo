@@ -20,10 +20,10 @@ cc_library(
 )
 
 cc_library(
-    name = "route_guide_call",
-    srcs = ["route_guide_call.cc"],
+    name = "route_chat_call",
+    srcs = ["route_chat_call.cc"],
     hdrs = [
-        "route_guide_call.h",
+        "route_chat_call.h",
     ],
     deps = [
         ":client_base",
@@ -50,7 +50,7 @@ cc_library(
     ],
     deps = [
         ":client_base",
-        ":route_guide_call",
+        ":route_chat_call",
         "//src/common/grpc_framework:client_impl",
         "//src/common/proto:grpc_service",
         "@boost//:algorithm",

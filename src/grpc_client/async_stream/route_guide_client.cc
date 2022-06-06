@@ -4,7 +4,7 @@
 
 #include "src/grpc_client/async_stream/route_guide_client.h"
 #include "src/common/proto/grpc_service.pb.h"
-#include "src/grpc_client/async_stream/route_guide_call.h"
+#include "src/grpc_client/async_stream/route_chat_call.h"
 #include <grpc++/create_channel.h>
 
 namespace grpc_demo {

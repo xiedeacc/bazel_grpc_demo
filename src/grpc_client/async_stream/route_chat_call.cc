@@ -2,7 +2,7 @@
 // Created by zjf on 2018/3/12.
 //
 
-#include "src/grpc_client/async_stream/route_guide_call.h"
+#include "src/grpc_client/async_stream/route_chat_call.h"
 #include "src/common/grpc_framework/client_rpc_tag.h"
 
 namespace grpc_demo {
@@ -33,7 +33,6 @@ RouteGuideCall::RouteGuideCall(ClientBase *client) : client(client) {
   writer_ = std::unique_ptr<SuperTag::WriterType>(
       new SuperTag::WriterType(this, *(stream.get())));
   writer_->Start();
-  client->AddTag({this, writer_.get(), reader_.get()});
   notes_.push_back(MakeRouteNote("First message", 0, 0));
   notes_.push_back(MakeRouteNote("Second message", 0, 1));
   notes_.push_back(MakeRouteNote("Third message", 1, 0));
@@ -42,16 +41,14 @@ RouteGuideCall::RouteGuideCall(ClientBase *client) : client(client) {
 
 void RouteGuideCall::OnRead(void *message) { client->OnRouteChatRead(message); }
 
-void RouteGuideCall::OnWrite(int write_id) {
-  // client->OnRouteChatWrite(message);
+void RouteGuideCall::OnReadError() {
+  LOG(INFO) << "OnReadError";
+  Finish();
+  client->Exit();
 }
 
-void RouteGuideCall::Finish() {
-  status = grpc_demo::common::grpc_framework::ClientRPCStatus::FINISH;
-  stream->Finish(&rpc_status, this);
-  LOG(INFO) << "on_error, error_coe: " << rpc_status.error_code()
-            << ", message: " << rpc_status.error_message().c_str();
-  context.TryCancel();
+void RouteGuideCall::OnWrite(int write_id) {
+  // client->OnRouteChatWrite(message);
 }
 
 void RouteGuideCall::Process() {
@@ -66,7 +63,6 @@ void RouteGuideCall::Process() {
   } else if (status ==
              grpc_demo::common::grpc_framework::ClientRPCStatus::FINISH) {
     LOG(INFO) << "RouteGuideCall FINISH";
-    client->RemoveTag({this, reader_.get(), writer_.get()});
     delete this;
   }
 }

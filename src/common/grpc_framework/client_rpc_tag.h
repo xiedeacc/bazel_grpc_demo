@@ -6,12 +6,11 @@
 #define GRPC_FRAMEWORK_CLIENT_RPC_H
 
 #include "src/common/grpc_framework/client_impl.h"
-#include "src/common/grpc_framework/rpc_reader.h"
-#include "src/common/grpc_framework/rpc_writer.h"
+#include "src/common/grpc_framework/client_rpc_reader.h"
+#include "src/common/grpc_framework/client_rpc_writer.h"
 #include "src/common/grpc_framework/tag_base.h"
 
-#include "grpc++/grpc++.h"
-#include <grpcpp/support/status.h>
+#include <grpcpp/grpcpp.h>
 
 namespace grpc_demo {
 namespace common {
@@ -34,9 +33,16 @@ public:
 
   virtual ~ClientUnaryStreamRpcTag() {}
 
+  virtual std::string Name() override { return "ClientUnaryStreamRpcTag"; }
+
   virtual void Process() override = 0;
 
-  virtual void Finish() = 0;
+  virtual void Finish() {
+    status = grpc_demo::common::grpc_framework::ClientRPCStatus::FINISH;
+    stream->Finish(&rpc_status, this);
+    LOG(INFO) << "on_error, error_code: " << rpc_status.error_code()
+              << ", message: " << rpc_status.error_message().c_str();
+  };
 
   virtual void OnError() override {
     status = ClientRPCStatus::FINISH;
@@ -75,14 +81,14 @@ public:
 
   virtual ~ClientBiStreamRpcTag() {}
 
+  virtual std::string Name() override { return "ClientBiStreamRpcTag"; }
+
   virtual void Process() override = 0;
 
-  virtual void Finish() = 0;
-
   virtual void OnError() override {
-    // status = ClientRPCStatus::FINISH;
+    status = ClientRPCStatus::FINISH;
     // stream->Finish(&rpc_status, this);
-    // LOG(INFO) << "on_error, error_coe: " << rpc_status.error_code()
+    // LOG(INFO) << "on_error, error_code: " << rpc_status.error_code()
     //<< ", message: " << rpc_status.error_message().c_str();
     // below code better perfomance, but not so formal
     context.TryCancel();
@@ -91,11 +97,21 @@ public:
 
   virtual void OnRead(void *req_ptr) override = 0;
 
-  virtual void OnReadError() override { OnError(); };
+  virtual void OnReadError() override = 0;
 
   virtual void OnWrite(int write_id) override = 0;
 
-  virtual void OnWriteError() override { OnError(); };
+  virtual void OnWriteError() override {
+    writer_->Stop();
+    OnError();
+  };
+
+  virtual void Finish() {
+    status = grpc_demo::common::grpc_framework::ClientRPCStatus::FINISH;
+    stream->Finish(&rpc_status, this);
+    LOG(INFO) << "on_error, error_code: " << rpc_status.error_code()
+              << ", message: " << rpc_status.error_message().c_str();
+  };
 
 protected:
   grpc::ClientContext context;

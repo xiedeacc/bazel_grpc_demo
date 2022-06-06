@@ -10,7 +10,7 @@
 #include "src/common/proto/grpc_service.grpc.pb.h"
 #include "src/common/proto/grpc_service.pb.h"
 #include "src/common/util/helper.h"
-#include "src/grpc_client/async_stream/route_guide_call.h"
+#include "src/grpc_client/async_stream/route_chat_call.h"
 #include "src/grpc_client/async_stream/route_guide_client.h"
 #include <grpc/grpc.h>
 #include <grpcpp/alarm.h>

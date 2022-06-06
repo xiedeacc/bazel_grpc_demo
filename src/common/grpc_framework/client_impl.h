@@ -9,11 +9,9 @@
 
 #include "absl/time/clock.h"
 #include "glog/logging.h"
-#include "grpc++/grpc++.h"
-#include "grpc/support/log.h"
-#include "grpc/support/time.h"
 #include <atomic>
 #include <chrono>
+#include <grpcpp/grpcpp.h>
 #include <set>
 #include <string>
 #include <thread>
@@ -56,6 +54,8 @@ public:
     channel_->NotifyOnStateChange(state_, deadline, cq_, this);
   };
 
+  virtual std::string Name() { return "ChannelStateMonitor"; }
+
 private:
   std::shared_ptr<grpc::Channel> channel_;
   grpc::CompletionQueue *cq_;
@@ -75,21 +75,12 @@ public:
     return grpc::InsecureChannelCredentials();
   }
 
-  void AddTag(std::vector<TagBase *> tags) {
-    tags_.insert(tags.begin(), tags.end());
-  };
-
-  void RemoveTag(std::vector<TagBase *> tags) {
-    std::for_each(tags.begin(), tags.end(),
-                  [this](TagBase *tag) { this->tags_.erase(tag); });
-  }
-
   void Run(std::string address) {
     server_addr = address;
-
     running.store(true, std::memory_order_relaxed);
-    thread = std::thread(&this_type::Srv, this);
+    thread_ = std::thread(&this_type::Srv, this);
     while (running.load()) {
+      LOG(INFO) << "sleep 1 seconds";
       absl::SleepFor(absl::Seconds(1));
     }
   }
@@ -98,8 +89,8 @@ public:
 
   void Exit() {
     running.store(false, std::memory_order_relaxed);
-    if (thread.joinable()) {
-      thread.join();
+    if (thread_.joinable()) {
+      thread_.join();
     }
   }
 
@@ -135,7 +126,6 @@ protected:
 
       ChannelStateMonitor_ = std::unique_ptr<ChannelStateMonitor>(
           new ChannelStateMonitor(channel, cq_.get(), 60 * 24, this));
-      AddTag({ChannelStateMonitor_.get()});
       LOG(INFO) << "channel_state_listener_ is " << ChannelStateMonitor_.get();
 
       OnRun();
@@ -144,25 +134,16 @@ protected:
       bool ok = false;
       while (cq_->Next(&got_tag, &ok)) {
         TagBase *call = static_cast<TagBase *>(got_tag);
-
-        LOG(INFO) << "tag is " << got_tag << " ok == " << ok;
-        if (tags_.find(static_cast<TagBase *>(got_tag)) == tags_.end()) {
-          LOG(INFO) << "invalid tag: " << got_tag;
-          continue;
-        }
-
+        LOG(INFO) << "tag is " << got_tag << ", ok = " << ok
+                  << ", name = " << call->Name();
         if (ok) {
-          LOG(INFO) << "tag process: " << got_tag;
           call->Process();
         } else {
-          LOG(INFO) << "tag error: " << got_tag;
           LOG(INFO) << "channele stats: " << channel->GetState(false);
           call->OnError();
         }
       }
-      std::cout << "completion queue is shutting down. restart it" << std::endl;
-      RemoveTag({ChannelStateMonitor_.get()});
-
+      LOG(INFO) << "completion queue is shutting down. restart it";
       std::this_thread::yield();
       std::this_thread::sleep_for(std::chrono::milliseconds(1000 * 10));
     }
@@ -171,6 +152,7 @@ protected:
   virtual void OnChannelStateChanged(grpc_connectivity_state old_state,
                                      grpc_connectivity_state new_state) {
     if (new_state != GRPC_CHANNEL_READY) {
+      LOG(INFO) << "shutdown cq";
       cq_->Shutdown();
     }
   }
@@ -184,9 +166,8 @@ protected:
   std::unique_ptr<typename ServiceType::Stub> stub_;
 
   std::atomic<bool> running;
-  std::thread thread;
+  std::thread thread_;
 
-  std::set<TagBase *> tags_;
   std::unique_ptr<ChannelStateMonitor> ChannelStateMonitor_;
 };
 

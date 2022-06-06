@@ -22,10 +22,11 @@ public:
   RouteGuideCall(ClientBase *client);
 
   virtual void OnRead(void *) override;
+  virtual void OnReadError() override;
+
   virtual void OnWrite(int) override;
 
   virtual void Process() override;
-  virtual void Finish() override;
 
 private:
   ClientBase *client;
