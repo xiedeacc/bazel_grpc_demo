@@ -22,7 +22,6 @@ cc_library(
 
 cc_library(
     name = "route_chat_call",
-    srcs = ["route_chat_call.cc"],
     hdrs = [
         "route_chat_call.h",
     ],
@@ -43,9 +42,6 @@ cc_library(
 
 cc_library(
     name = "route_guide_server_impl",
-    srcs = [
-        "route_guide_server_impl.cc",
-    ],
     hdrs = [
         "route_guide_server_impl.h",
     ],

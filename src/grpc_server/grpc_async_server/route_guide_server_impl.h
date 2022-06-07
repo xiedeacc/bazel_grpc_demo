@@ -8,6 +8,7 @@
 #include "src/common/proto/grpc_service.grpc.pb.h"
 #include "src/common/proto/grpc_service.pb.h"
 #include "src/common/util/helper.h"
+#include "src/grpc_server/grpc_async_server/route_chat_call.h"
 #include "src/grpc_server/grpc_async_server/route_guide_server_base.h"
 #include <grpcpp/grpcpp.h>
 #include <thread>
@@ -15,6 +16,7 @@
 namespace grpc_demo {
 namespace grpc_server {
 namespace grpc_async_server {
+
 struct RecordRouteState {
   int pointCount;
   int featureCount;
@@ -23,6 +25,7 @@ struct RecordRouteState {
   std::chrono::system_clock::time_point startTime;
   RecordRouteState() : pointCount(0), featureCount(0), distance(0.0f) {}
 };
+
 class ServerImpl final : public RouteGuideServerBase {
 public:
   ServerImpl(const std::string &db_content) {
@@ -31,14 +34,24 @@ public:
 
   virtual void
   OnRun(std::unique_ptr<grpc::ServerCompletionQueue> &request_queue,
-        std::unique_ptr<grpc::ServerCompletionQueue> &response_queue) override;
+        std::unique_ptr<grpc::ServerCompletionQueue> &response_queue) override {
+    new RouteChatCall(this, request_queue, response_queue);
+  };
 
-  virtual void OnExit() override;
+  virtual void OnExit() override{};
 
   virtual void
   OnRouteChatRead(const grpc_demo::common::proto::RouteNote *request,
-                  grpc_demo::common::proto::RouteNote *response);
-  virtual void OnRouteChatWrite(int write_id);
+                  grpc_demo::common::proto::RouteNote *response) override {
+    LOG(INFO) << "Read message " << request->message() << " at "
+              << request->location().latitude() << ", "
+              << request->location().longitude();
+    response->CopyFrom(*request);
+  }
+
+  virtual void OnRouteChatWrite(int write_id) override {
+    // LOG(INFO) << "write_id: " << write_id;
+  }
 
   std::unordered_map<grpc_demo::common::grpc_framework::TagBase *,
                      RecordRouteState>

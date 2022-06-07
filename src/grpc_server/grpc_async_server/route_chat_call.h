@@ -22,14 +22,46 @@ public:
 
   RouteChatCall(RouteGuideServerBase *server,
                 std::unique_ptr<grpc::ServerCompletionQueue> &request_queue,
-                std::unique_ptr<grpc::ServerCompletionQueue> &response_queue);
+                std::unique_ptr<grpc::ServerCompletionQueue> &response_queue)
+      : server_(server), request_queue_(request_queue),
+        response_queue_(response_queue) {
+    server_->service_.RequestRouteChat(&server_context_, &responder_,
+                                       request_queue_.get(),
+                                       response_queue_.get(), this);
 
-  virtual void OnRead(void *) override;
-  virtual void OnWrite(int) override;
+    reader_ = std::unique_ptr<SuperTag::ReaderType>(
+        new SuperTag::ReaderType(this, responder_));
 
-  virtual void OnReadError() override;
+    writer_ = std::unique_ptr<SuperTag::WriterType>(
+        new SuperTag::WriterType(this, responder_));
 
-  virtual void Process() override;
+    writer_->Start();
+  }
+
+  virtual void OnRead(void *message) override {
+    // LOG(INFO) << "OnRead";
+    grpc_demo::common::proto::RouteNote *response = writer_->NewResponse();
+    server_->OnRouteChatRead((grpc_demo::common::proto::RouteNote *)message,
+                             response);
+    writer_->Write(response);
+  }
+
+  virtual void OnWrite(int write_id) override {
+    server_->OnRouteChatWrite(write_id);
+  };
+
+  virtual void OnReadError() override { writer_->Write(nullptr); }
+
+  virtual void Process() override {
+    if (status == grpc_demo::common::grpc_framework::ServerRPCStatus::CREATE) {
+      LOG(INFO) << "RouteChatCall CREATE, address: " << this;
+      reader_->Read();
+    } else if (status ==
+               grpc_demo::common::grpc_framework::ServerRPCStatus::FINISH) {
+      LOG(INFO) << "RouteChatCall FINISH, now delete address: " << this;
+      delete this;
+    }
+  }
 
   virtual std::string Name() { return "RouteChatCall"; }
 
