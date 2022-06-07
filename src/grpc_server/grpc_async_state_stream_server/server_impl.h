@@ -305,14 +305,6 @@ private:
       grpc_demo::grpc_server::grpc_async_state_stream_server::job::BaseJob
           *job = (grpc_demo::grpc_server::grpc_async_state_stream_server::job::
                       BaseJob *)tag;
-      LOG(INFO) << "cancelled: "
-                << (job->server_context_.IsCancelled() ? "true" : "false");
-      if (!job->AsyncOpInProgress()) {
-        LOG(INFO) << "OnDone called!";
-        job->Done();
-        continue;
-      }
-
       if (!tag) {
         LOG(INFO) << "tag already deleted!";
         continue;

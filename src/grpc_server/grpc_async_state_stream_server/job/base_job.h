@@ -13,13 +13,15 @@
 #include "glog/logging.h"
 #include "src/common/proto/grpc_service.grpc.pb.h"
 #include "src/common/proto/grpc_service.pb.h"
+#include "src/grpc_server/grpc_async_state_stream_server/job/job_done_handler.h"
+#include "src/grpc_server/grpc_async_state_stream_server/job/job_interface.h"
 
 namespace grpc_demo {
 namespace grpc_server {
 namespace grpc_async_state_stream_server {
 namespace job {
 
-class BaseJob {
+class BaseJob : public JobInterface {
 public:
   enum AsyncOpType {
     ASYNC_OP_TYPE_INVALID,
@@ -36,7 +38,7 @@ public:
       : async_op_counter_(0), async_read_in_progress_(false),
         async_write_in_progress_(false), fail_rate_(0),
         request_queue_(request_queue), response_queue_(response_queue),
-        status_(CREATE) {}
+        status_(CREATE), job_done_handler_(this), on_done_called_(false) {}
 
   virtual ~BaseJob(){
       // report fail_rate_
@@ -51,6 +53,14 @@ public:
   virtual void SetFailed() { fail_rate_ = 10000; }
 
   virtual void Done() = 0;
+
+  virtual void OnDone(bool ok) {
+    on_done_called_ = true;
+    LOG(INFO) << "OnDone called, async_op_counter_ = " << async_op_counter_;
+    if (async_op_counter_ == 0) {
+      Done();
+    }
+  }
 
   virtual void Proceed(bool ok) {
     switch (status_) {
@@ -134,6 +144,10 @@ protected:
     default: // Don't care about other ops
       break;
     }
+    if (async_op_counter_ == 0 && on_done_called_) {
+      Done();
+      return false;
+    }
     return true;
   }
 
@@ -146,11 +160,14 @@ protected:
   bool async_read_in_progress_;
   bool async_write_in_progress_;
   double fail_rate_;
+  JobDoneHandler job_done_handler_;
+  bool on_done_called_;
 
 protected:
   grpc::ServerCompletionQueue *request_queue_;
   grpc::ServerCompletionQueue *response_queue_;
   ProcessStatus status_; // The current serving state.
+
 public:
   grpc::ServerContext server_context_;
 };

@@ -49,10 +49,11 @@ static void processRpcs(std::mutex *incoming_tags_mutex,
       grpc_demo::grpc_server::grpc_async_callback_stream_server::TagInfo
           tagInfo = tags.front();
       tags.pop_front();
+      LOG(INFO) << "ok: " << (tagInfo.ok ? "true" : "false");
       (*(tagInfo.tagProcessor))(tagInfo.ok);
-      randomSleepThisThread(); // Simulate processing Time
+      // randomSleepThisThread(); // Simulate processing Time
     };
-    randomSleepThisThread(); // yield cpu
+    // randomSleepThisThread(); // yield cpu
   }
 }
 

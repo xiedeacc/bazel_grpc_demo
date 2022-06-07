@@ -56,6 +56,8 @@ public:
     // rpc.
     asyncOpStarted(BaseJob::ASYNC_OP_TYPE_QUEUED_REQUEST);
     LOG(INFO) << "created!";
+    LOG(INFO) << "Pending Bidirectional Streaming Rpcs Count = "
+              << gBidirectionalStreamingJobCounter;
     mHandlers.requestRpc(mService, &mServerContext, &mResponder, mCQ, mCQ,
                          &mOnInit);
     LOG(INFO) << "requestRpc";
@@ -64,7 +66,8 @@ public:
 private:
   bool sendResponseImpl(const google::protobuf::Message *responseMsg) override {
     auto response = static_cast<const ResponseType *>(responseMsg);
-
+    // LOG(INFO) << "response: "
+    //<< (response == nullptr ? "nullptr" : "not nullptr");
     if (response == nullptr && !mClientStreamingDone) {
       GPR_ASSERT(false); // If you want to cancel, use BaseJob::finishWithError
       return false;
@@ -94,13 +97,12 @@ private:
 
   void doSendResponse() {
     asyncOpStarted(BaseJob::ASYNC_OP_TYPE_WRITE);
-    LOG(INFO) << "write";
     mResponder.Write(mResponseQueue.front(), &mOnWrite);
   }
 
   void doFinish() {
     asyncOpStarted(BaseJob::ASYNC_OP_TYPE_FINISH);
-    LOG(INFO) << "finish";
+    LOG(INFO) << "doFinish";
     mResponder.Finish(grpc::Status::OK, &mOnFinish);
   }
 

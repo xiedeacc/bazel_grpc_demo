@@ -89,9 +89,9 @@ public:
 
   void Exit() {
     running.store(false, std::memory_order_relaxed);
-    if (thread_.joinable()) {
-      thread_.join();
-    }
+    // if (thread_.joinable()) {
+    // thread_.join();
+    //}
   }
 
   virtual void OnExit(){};
@@ -138,6 +138,7 @@ protected:
                   << ", name = " << call->Name();
         if (ok) {
           call->Process();
+          // exit(1);
         } else {
           LOG(INFO) << "channele stats: " << channel->GetState(false);
           call->OnError();

@@ -21,11 +21,37 @@ cc_library(
 )
 
 cc_library(
+    name = "job_interface",
+    hdrs = [
+        "job_interface.h",
+    ],
+    deps = [],
+)
+
+cc_library(
     name = "grpc_base_job",
     hdrs = [
         "base_job.h",
     ],
     deps = [
+        ":grpc_job_done_handler",
+        ":job_interface",
+        "//src/common/proto:grpc_service",
+        "@com_github_gflags_gflags//:gflags",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_github_grpc_grpc//:grpc++_reflection",
+        "@com_google_googletest//:gtest",
+        "@glog",
+    ],
+)
+
+cc_library(
+    name = "grpc_job_done_handler",
+    hdrs = [
+        "job_done_handler.h",
+    ],
+    deps = [
+        ":job_interface",
         "//src/common/proto:grpc_service",
         "@com_github_gflags_gflags//:gflags",
         "@com_github_grpc_grpc//:grpc++",

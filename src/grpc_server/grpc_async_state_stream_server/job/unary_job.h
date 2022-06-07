@@ -5,15 +5,12 @@
 
 #ifndef GRPC_async_service_RPC_UNARY_RPC_H
 #define GRPC_async_service_RPC_UNARY_RPC_H
-#include <grpcpp/completion_queue.h>
 #pragma once
 
 #include "src/grpc_server/grpc_async_state_stream_server/handler/base_handler.h"
-#include "src/grpc_server/grpc_async_state_stream_server/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_server/grpc_async_state_stream_server/handler/client_streaming_handler.h"
-#include "src/grpc_server/grpc_async_state_stream_server/handler/server_streaming_handler.h"
 #include "src/grpc_server/grpc_async_state_stream_server/handler/unary_handler.h"
 #include "src/grpc_server/grpc_async_state_stream_server/job/base_job.h"
+
 namespace grpc_demo {
 namespace grpc_server {
 namespace grpc_async_state_stream_server {
@@ -34,7 +31,7 @@ public:
         responder_(&server_context_), handler_(handler) {
     ++unary_rpc_counter;
     LOG(INFO) << "pending unary rpcs count = " << unary_rpc_counter;
-    server_context_.AsyncNotifyWhenDone(this);
+    server_context_.AsyncNotifyWhenDone(&job_done_handler_);
     Proceed(true);
   }
 

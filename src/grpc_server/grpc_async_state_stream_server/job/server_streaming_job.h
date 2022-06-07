@@ -6,14 +6,10 @@
 
 #ifndef GRPC_async_service_RPC_SERVER_STREAMING_RPC_H
 #define GRPC_async_service_RPC_SERVER_STREAMING_RPC_H
-#include <grpcpp/completion_queue.h>
 #pragma once
 
 #include "src/grpc_server/grpc_async_state_stream_server/handler/base_handler.h"
-#include "src/grpc_server/grpc_async_state_stream_server/handler/bidirectional_streaming_handler.h"
-#include "src/grpc_server/grpc_async_state_stream_server/handler/client_streaming_handler.h"
 #include "src/grpc_server/grpc_async_state_stream_server/handler/server_streaming_handler.h"
-#include "src/grpc_server/grpc_async_state_stream_server/handler/unary_handler.h"
 #include "src/grpc_server/grpc_async_state_stream_server/job/base_job.h"
 
 namespace grpc_demo {
@@ -38,7 +34,7 @@ public:
     ++server_streaming_rpc_counter;
     LOG(INFO) << "pending server streaming rpcs count = "
               << server_streaming_rpc_counter;
-    server_context_.AsyncNotifyWhenDone(this);
+    server_context_.AsyncNotifyWhenDone(&job_done_handler_);
     Proceed(true);
   }
 

@@ -62,6 +62,7 @@ protected:
   }
 
   bool asyncOpFinished(AsyncOpType opType) {
+    LOG(INFO) << "asyncOpFinished";
     --mAsyncOpCounter;
 
     switch (opType) {
