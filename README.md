@@ -1,6 +1,6 @@
 # Introduce
 
-bazel_grpc_demo is the best example for grpc in github for current, it can be use in product enviroment. 
+bazel_grpc_demo is the best example for grpc in github for current, it can be use in product enviroment. recomend grpc_async_server for server implement and route_guide_async_stream_client for client implement
 
 # Feature
 
@@ -11,7 +11,7 @@ bazel_grpc_demo is the best example for grpc in github for current, it can be us
 
 # Todo:
 
-1. grpc_async_server use grpc arena to allocate and construct response, then modify response will core，new reponse works fine, need check reason.
+1. grpc_async_server use grpc arena to allocate and construct response, then modify response will core，new reponse works fine, need check reason. user don't need worry about this, for repo use new now.
 2. grpc_async_server not call AsyncNotifyWhenDone，call AsyncNotifyWhenDone need make records and do some judgement like grpc_async_callback_stream_server and grpc_async_state_stream_server
 
 # About code
