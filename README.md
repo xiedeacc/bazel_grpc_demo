@@ -4,7 +4,7 @@ bazel_grpc_demo is the best example for grpc in github for current, it can be us
 
 # Feature
 
-1. supprot bazel 5.1 and above
+1. support bazel 5.1 and above
 2. many implement style, state machine style, callback, unary and bidirectional and client and server streaming, synchronous
 3. multiple thread
 4. high performance
