@@ -11,9 +11,8 @@ bazel_grpc_demo is the best example for grpc in github for current, it can be us
 
 # Todo:
 
-1. grpc_async_server使用arena方式分配内存会导致core，直接new不会core，原因待查
-2. grpc_async_server没有调用AsyncNotifyWhenDone，调用AsyncNotifyWhenDone需要像grpc_async_callback_stream_server和grpc_async_state_stream_server一样记录是否还有tagzai队列中
-
+1. grpc_async_server use grpc arena to allocate and construct response, then modify response will core，new reponse works fine, need check reason.
+2. grpc_async_server not call AsyncNotifyWhenDone，call AsyncNotifyWhenDone need make records and do some judgement like grpc_async_callback_stream_server and grpc_async_state_stream_server
 
 # About code
 1. some code derrived from https://groups.google.com/g/grpc-io/c/T9u2TejYVTc/m/bgtMIKpfCgAJ, 
