@@ -83,9 +83,7 @@ protected:
           call->OnError();
         }
       }
-      std::cout << "completion queue is shutting down. restart it" << std::endl;
-      std::this_thread::yield();
-      std::this_thread::sleep_for(std::chrono::milliseconds(1000 * 10));
+      LOG(INFO) << "completion queue empty. restart it";
     }
   }
 
@@ -110,9 +108,7 @@ protected:
           call->OnError();
         }
       }
-      std::cout << "completion queue is shutting down. restart it" << std::endl;
-      std::this_thread::yield();
-      std::this_thread::sleep_for(std::chrono::milliseconds(1000 * 10));
+      LOG(INFO) << "completion queue empty. restart it";
     }
   }
 

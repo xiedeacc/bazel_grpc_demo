@@ -11,6 +11,7 @@
 namespace grpc_demo {
 namespace grpc_server {
 namespace grpc_async_server {
+
 class RouteChatCall
     : public grpc_demo::common::grpc_framework::ServerBiStreamRpcTag<
           grpc_demo::common::proto::RouteNote,
@@ -36,6 +37,7 @@ public:
         new SuperTag::WriterType(this, responder_));
 
     writer_->Start();
+    new RouteChatCall(server, &request_queue, &response_queue);
   }
 
   virtual void OnRead(void *message) override {

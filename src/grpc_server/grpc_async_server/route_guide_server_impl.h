@@ -35,6 +35,7 @@ public:
   virtual void
   OnRun(std::unique_ptr<grpc::ServerCompletionQueue> &request_queue,
         std::unique_ptr<grpc::ServerCompletionQueue> &response_queue) override {
+    LOG(INFO) << "OnRun";
     new RouteChatCall(this, request_queue, response_queue);
   };
 
