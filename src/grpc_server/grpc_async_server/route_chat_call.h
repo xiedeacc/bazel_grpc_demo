@@ -37,7 +37,7 @@ public:
         new SuperTag::WriterType(this, responder_));
 
     writer_->Start();
-    new RouteChatCall(server, &request_queue, &response_queue);
+    new RouteChatCall(server, request_queue, response_queue);
   }
 
   virtual void OnRead(void *message) override {
